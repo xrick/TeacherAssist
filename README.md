@@ -18,11 +18,6 @@ A complete AI-powered presentation generation system that creates professional P
                  └─────────┘  └────────┘
 ```
 
-### **Run on ollama**
-docker run -it --name presenton -p 5000:80 -e LLM="ollama" -e OLLAMA_MODEL="llama3.2:3b" -e IMAGE_PROVIDER="pexels" -e PEXELS_API_KEY="*******" -e CAN_CHANGE_KEYS="false" -v "./app_data:/app_data" ghcr.io/presenton/presenton:latest
-
-
-
 ## 📋 Features
 
 - **AI Content Analysis**: Uses Ollama (qwen-oss:20) to analyze and structure content
