@@ -1,6 +1,6 @@
 # .gitignore
 .DS_Store
-src/APIs/presenton/
+APIs/presenton/
 # Environment variables
 # .env
 # .env.local

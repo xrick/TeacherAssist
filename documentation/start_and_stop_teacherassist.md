@@ -27,16 +27,19 @@
 │              TeacherAssist 系統                  │
 ├─────────────────────────────────────────────────┤
 │                                                  │
-│  1. Ollama LLM Service    (Host - Background)   │
-│     └─ localhost:11434                          │
+│  1. Ollama #1 (gpt-oss)   (Host - Background)   │
+│     └─ localhost:11434    (簡報內容生成)        │
 │                                                  │
-│  2. Presenton API         (Docker Container)    │
+│  2. Ollama #2 (Zephyr)    (Host - Background)   │
+│     └─ localhost:11435    (演講稿生成)          │
+│                                                  │
+│  3. Presenton API         (Docker Container)    │
 │     └─ localhost:8000                           │
 │                                                  │
-│  3. Backend API           (Source - Foreground) │
+│  4. Backend API           (Source - Foreground) │
 │     └─ localhost:5000     (Real-time logs)      │
 │                                                  │
-│  4. Frontend Server       (Python HTTP Server)  │
+│  5. Frontend Server       (Python HTTP Server)  │
 │     └─ localhost:8080                           │
 │                                                  │
 └─────────────────────────────────────────────────┘
@@ -47,19 +50,23 @@
 ```
 Frontend (8080)
     ↓
-Backend (5000) ──→ Presenton (8000) ──→ Ollama (11434)
-    ↓                                       ↑
-    └──────────────────────────────────────┘
+Backend (5000) ──→ Presenton (8000) ──→ Ollama #1 (11434 - gpt-oss:20b)
     ↓
-Pexels API (External)
+    ├──→ Ollama #1 (11434) ─────────────────┘
+    │
+    ├──→ Ollama #2 (11435 - Zephyr 7B - 演講稿生成)
+    │
+    └──→ Pexels API (External - 圖片)
 ```
 
 ### 啟動順序
 
-1. **Ollama** (必須最先啟動)
-2. **Presenton** (Docker 容器)
-3. **Backend** (從源碼運行，等待 Ollama 和 Presenton)
-4. **Frontend** (靜態檔案伺服器)
+1. **Python venv** (激活虛擬環境)
+2. **Ollama #1 (gpt-oss:20b)** - Port 11434 (簡報內容生成)
+3. **Ollama #2 (Zephyr 7B)** - Port 11435 (演講稿生成，需設置 `OLLAMA_HOST=127.0.0.1:11435`)
+4. **Presenton** (Docker 容器)
+5. **Backend** (從源碼運行，有 realtime logger)
+6. **Frontend** (靜態檔案伺服器)
 
 ---
 
@@ -85,8 +92,12 @@ ollama --version
 ollama list
 
 # 必須要有：
-# - gpt-oss:20b   (簡報生成)
-# - zephyr:7b     (演講稿生成，可選)
+# - gpt-oss:20b   (簡報內容生成 - Port 11434)
+# - zephyr:7b     (演講稿生成 - Port 11435)
+
+# 如果缺少模型，請下載：
+ollama pull gpt-oss:20b
+ollama pull zephyr:7b
 ```
 
 ### 環境變數
@@ -133,28 +144,67 @@ pip install -r requirements.txt
 
 ### 🔧 方法 2: 手動啟動（逐步）
 
-#### Step 1: 啟動 Ollama 服務
+#### Step 1: 激活 Python 虛擬環境
 
 ```bash
-# 檢查 Ollama 是否已運行
+cd /path/to/TeacherAssist/backend
+source venv/bin/activate
+
+# 確認在 venv 中
+which python3
+# 應該顯示: .../backend/venv/bin/python3
+```
+
+#### Step 2: 啟動 Ollama #1 (gpt-oss:20b) - Port 11434
+
+```bash
+# 檢查 Ollama 是否已運行在 port 11434
 ps aux | grep "ollama serve" | grep -v grep
 
-# 如果未運行，啟動它：
+# 如果未運行，啟動它（預設 port 11434）：
 ollama serve &
 
 # 等待 2 秒讓服務啟動
 sleep 2
 
-# 驗證 Ollama 運行
-curl -s http://localhost:11434/api/tags | grep -q "models" && echo "✅ Ollama is running" || echo "❌ Ollama failed"
+# 驗證 Ollama #1 運行
+curl -s http://localhost:11434/api/tags | grep -q "models" && echo "✅ Ollama #1 (11434) is running" || echo "❌ Ollama #1 failed"
+
+# 驗證 gpt-oss:20b 模型可用
+ollama list | grep "gpt-oss:20b"
+```
+
+#### Step 2b: 啟動 Ollama #2 (Zephyr 7B) - Port 11435
+
+```bash
+# 設置 OLLAMA_HOST 環境變數指向 port 11435
+export OLLAMA_HOST=127.0.0.1:11435
+
+# 啟動第二個 Ollama 實例
+ollama serve &
+
+# 等待 2 秒讓服務啟動
+sleep 2
+
+# 驗證 Ollama #2 運行（仍然使用 OLLAMA_HOST 環境變數）
+curl -s http://localhost:11435/api/tags | grep -q "models" && echo "✅ Ollama #2 (11435) is running" || echo "❌ Ollama #2 failed"
+
+# 驗證 Zephyr 7B 模型可用
+OLLAMA_HOST=127.0.0.1:11435 ollama list | grep "zephyr:7b"
+
+# 重置 OLLAMA_HOST（後續操作使用預設 port）
+unset OLLAMA_HOST
 ```
 
 **重要注意事項**：
-- Ollama 必須在背景運行
-- 使用 `&` 或開新終端運行
-- 不要關閉 Ollama 終端
+- 必須啟動 **兩個獨立的** Ollama 實例
+- Ollama #1 (11434): 用於簡報內容生成 (gpt-oss:20b)
+- Ollama #2 (11435): 用於演講稿生成 (Zephyr 7B)
+- 第二個實例需要設置 `OLLAMA_HOST=127.0.0.1:11435`
+- 兩個實例都必須在背景運行
+- 建議在不同終端運行，或使用 `nohup` 和日誌分離
 
-#### Step 2: 啟動 Presenton (Docker)
+#### Step 3: 啟動 Presenton (Docker)
 
 ```bash
 # 停止任何運行中的 backend 容器（我們將從源碼運行）
@@ -181,7 +231,7 @@ docker-compose ps presenton
 # PORTS: 0.0.0.0:8000->8000/tcp
 ```
 
-#### Step 3: 啟動 Backend (從源碼)
+#### Step 4: 啟動 Backend (從源碼，帶 realtime logger)
 
 ```bash
 # 開啟新終端或使用 tmux/screen
@@ -224,7 +274,7 @@ curl -s http://localhost:5000/api/health | python3 -m json.tool
 }
 ```
 
-#### Step 4: 啟動 Frontend
+#### Step 5: 啟動 Frontend
 
 ```bash
 # 開啟新終端
@@ -246,7 +296,7 @@ curl -I http://localhost:8080/
 # 應返回: HTTP/1.0 200 OK
 ```
 
-#### Step 5: 訪問系統
+#### Step 6: 訪問系統
 
 ```bash
 # 開啟瀏覽器
@@ -321,21 +371,26 @@ docker-compose ps presenton
 # docker-compose down presenton
 ```
 
-#### Step 4: 停止 Ollama (可選)
+#### Step 4: 停止 Ollama 實例 (可選)
 
 ```bash
-# 注意：Ollama 通常保持運行供其他應用使用
+# 注意：Ollama 實例通常保持運行供其他應用使用
 # 只在確定不需要時才停止
 
-# 找到 Ollama PID
-ps aux | grep "ollama serve" | grep -v grep | awk '{print $2}'
+# 找到所有 Ollama PID
+ps aux | grep "ollama serve" | grep -v grep
 
-# 停止 Ollama
+# 停止兩個 Ollama 實例
 pkill -f "ollama serve"
 
-# 驗證
-curl -I http://localhost:11434/ 2>&1 | grep -q "Connection refused" && echo "✅ Ollama stopped"
+# 驗證 Ollama #1 (11434)
+curl -I http://localhost:11434/ 2>&1 | grep -q "Connection refused" && echo "✅ Ollama #1 (11434) stopped"
+
+# 驗證 Ollama #2 (11435)
+curl -I http://localhost:11435/ 2>&1 | grep -q "Connection refused" && echo "✅ Ollama #2 (11435) stopped"
 ```
+
+**重要**：此步驟會停止 **兩個** Ollama 實例 (ports 11434 和 11435)
 
 ---
 
@@ -746,18 +801,29 @@ echo ""
 
 ### 問題 1: Ollama 連線失敗
 
-**錯誤訊息**: `Connection refused: http://localhost:11434`
+**錯誤訊息**: `Connection refused: http://localhost:11434` 或 `http://localhost:11435`
 
 **解決方案**:
 ```bash
-# 檢查 Ollama 是否運行
+# 檢查兩個 Ollama 實例是否運行
 ps aux | grep "ollama serve"
+netstat -tlnp | grep -E "11434|11435"
 
-# 如果未運行，啟動它
-ollama serve &
+# 如果 Ollama #1 (11434) 未運行，啟動它
+ollama serve > /tmp/ollama-11434.log 2>&1 &
 
-# 驗證
+# 驗證 Ollama #1
 curl http://localhost:11434/api/tags
+
+# 如果 Ollama #2 (11435) 未運行，啟動它
+export OLLAMA_HOST=127.0.0.1:11435
+ollama serve > /tmp/ollama-11435.log 2>&1 &
+
+# 驗證 Ollama #2
+curl http://localhost:11435/api/tags
+
+# 重置環境變數
+unset OLLAMA_HOST
 ```
 
 ### 問題 2: Presenton 容器無法啟動
