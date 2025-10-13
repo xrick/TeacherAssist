@@ -1,0 +1,177 @@
+# TeacherAssist Error Notes and Solutions
+
+## Error 1: Docker Image Pull Failure (Step 7 - Starting Services)
+
+### Error Message
+```
+Step 7: Starting Services...
+---------------------------
+[+] Running 1/1
+ ✘ presenton Error                                                     0.6s
+Error response from daemon: Head "https://ghcr.io/v2/pptxpro/presenton/manifests/latest": denied
+```
+
+### Root Cause Analysis
+
+**Problem**: Incorrect Docker image repository name in docker-compose.yml
+
+**Current Configuration (Line 5)**:
+```yaml
+image: ghcr.io/pptxpro/presenton:latest
+```
+
+**Issue**: The repository `ghcr.io/pptxpro/presenton` does not exist or is private/inaccessible. The error "denied" indicates:
+1. The image path is incorrect
+2. The repository might have been renamed or deleted
+3. Access permissions are denied (private repository)
+
+### Verified Correct Information
+
+**Correct Image**: `ghcr.io/presenton/presenton:latest`
+
+**Source**: Official Presenton GitHub repository (https://github.com/presenton/presenton)
+
+**Verification**: The correct image can be successfully pulled:
+```bash
+docker pull ghcr.io/presenton/presenton:latest
+```
+
+### Solution
+
+**Fix docker-compose.yml Line 5**:
+
+Change FROM:
+```yaml
+image: ghcr.io/pptxpro/presenton:latest
+```
+
+Change TO:
+```yaml
+image: ghcr.io/presenton/presenton:latest
+```
+
+### Step-by-Step Fix Instructions
+
+1. **Edit docker-compose.yml**:
+   ```bash
+   # Open file in editor
+   nano docker-compose.yml
+   # OR
+   vim docker-compose.yml
+   ```
+
+2. **Locate Line 5** under the `presenton` service
+
+3. **Replace the image name**:
+   - Old: `ghcr.io/pptxpro/presenton:latest`
+   - New: `ghcr.io/presenton/presenton:latest`
+
+4. **Save the file**
+
+5. **Pull the correct image** (optional but recommended):
+   ```bash
+   docker pull ghcr.io/presenton/presenton:latest
+   ```
+
+6. **Restart services**:
+   ```bash
+   docker-compose down
+   docker-compose up -d
+   ```
+
+### Alternative Solution: Build from Source
+
+If you need specific customization or the official image doesn't work:
+
+1. **Clone Presenton repository**:
+   ```bash
+   git clone https://github.com/presenton/presenton.git src/APIs/presenton
+   cd src/APIs/presenton
+   ```
+
+2. **Build locally**:
+   ```bash
+   docker build -t presenton:local .
+   ```
+
+3. **Update docker-compose.yml**:
+   ```yaml
+   image: presenton:local
+   ```
+
+### Presenton Docker Image Details
+
+**Official Repository**: https://github.com/presenton/presenton
+**Container Registry**: GitHub Container Registry (ghcr.io)
+**Image Path**: ghcr.io/presenton/presenton
+**Tags**: latest, specific version tags
+
+**Default Configuration**:
+- Port: 80 (mapped to 8000 in this project)
+- Supports environment variables for:
+  - LLM provider (OpenAI, Google, Anthropic, Ollama, Custom)
+  - API keys
+  - Image providers (DALL-E 3, Gemini Flash, Pexels, Pixabay)
+  - Ollama URL for local models
+
+### Expected Behavior After Fix
+
+After applying the fix, Step 7 should successfully:
+1. Pull the Presenton image from ghcr.io/presenton/presenton
+2. Start the presenton container on port 8000
+3. Start the backend container on port 5000
+4. Both services should show "Up" status
+
+**Verification Commands**:
+```bash
+# Check container status
+docker-compose ps
+
+# Should show:
+# presenton-api    Up    0.0.0.0:8000->8000/tcp
+# ppt-backend      Up    0.0.0.0:5000->5000/tcp
+
+# Check logs
+docker-compose logs presenton
+docker-compose logs backend
+
+# Test Presenton API
+curl http://localhost:8000/health
+
+# Test Backend API
+curl http://localhost:5000/api/health
+```
+
+### Additional Notes
+
+**Port Configuration**:
+- The official Presenton image exposes port 80 by default
+- This project maps it to port 8000: `"8000:80"`
+- If using different port mapping, update PRESENTON_API_URL in backend environment
+
+**Environment Variables Required**:
+- PRESENTON_API_KEY: Authentication key for Presenton API
+- OLLAMA_URL: URL to Ollama service (running on host)
+- IMAGE_PROVIDER: pexels (or other supported providers)
+- PEXELS_API_KEY: Pexels API authentication
+
+**Host Networking**:
+- `host.docker.internal:host-gateway` allows containers to access host services (Ollama)
+- Essential for Ollama integration as it runs on the host machine, not in Docker
+
+---
+
+## Prevention for Future Issues
+
+1. **Verify Docker image paths** before adding to docker-compose.yml
+2. **Check official documentation** for correct image repository
+3. **Test image pull** before running docker-compose:
+   ```bash
+   docker pull <image-name>:<tag>
+   ```
+4. **Use specific version tags** instead of `latest` for production stability
+
+---
+
+*Last Updated: 2025-10-13*
+*Project: TeacherAssist (Teaching PPT Generator)*

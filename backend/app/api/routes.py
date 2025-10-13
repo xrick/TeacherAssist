@@ -2,14 +2,16 @@ from fastapi import APIRouter, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 import uuid
 import os
-from app.models import GenerateRequest, GenerateResponse, ProgressResponse
+from app.models import GenerateRequest, GenerateResponse, ProgressResponse, TranscriptRequest, TranscriptResponse
 from app.services.content_processor import content_processor
 from app.services.presenton_service import PresentonService
+from app.services.zephyr_service import ZephyrService
 from app.config import get_settings
 
 router = APIRouter()
 settings = get_settings()
 presenton = PresentonService()
+zephyr = ZephyrService()
 
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_presentation(

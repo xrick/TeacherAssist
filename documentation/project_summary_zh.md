@@ -1,3 +1,4 @@
+<!-- documentation/project_summary_zh.md -->
 # 教學簡報生成器 - 專案摘要 📊
 
 ## 🎯 專案概述

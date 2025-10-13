@@ -1,3 +1,4 @@
+# setup.sh
 #!/bin/bash
 
 # Teaching PPT Generator - Setup Script
@@ -76,11 +77,11 @@ echo ""
 echo "Step 2: Checking Ollama Models..."
 echo "--------------------------------"
 
-if ollama list | grep -q "qwen-oss:20"; then
-    print_success "Ollama model qwen-oss:20 is downloaded"
+if ollama list | grep -q "gpt-oss:20"; then
+    print_success "Ollama model gpt-oss:20 is downloaded"
 else
-    print_info "Downloading Ollama model qwen-oss:20..."
-    ollama pull qwen-oss:20
+    print_info "Downloading Ollama model gpt-oss:20..."
+    ollama pull gpt-oss:20
     print_success "Model downloaded successfully"
 fi
 
