@@ -93,20 +93,34 @@ fi
 
 echo ""
 
-# ===== Step 4: 停止 Ollama (可選) =====
-echo "Step 4: 停止 Ollama (可選)"
-echo "------------------------"
+# ===== Step 4: 停止 Ollama 實例 (可選) =====
+echo "Step 4: 停止 Ollama 實例 (可選)"
+echo "------------------------------"
 
 print_warning "Ollama 服務可能被其他應用使用"
-read -p "是否停止 Ollama 服務？(y/N): " -n 1 -r
+read -p "是否停止所有 Ollama 實例？(y/N): " -n 1 -r
 echo ""
 
 if [[ $REPLY =~ ^[Yy]$ ]]; then
-    if pgrep -f "ollama serve" >/dev/null; then
-        print_info "停止 Ollama..."
+    # 查找所有 ollama serve 進程
+    OLLAMA_PIDS=$(pgrep -f "ollama serve" 2>/dev/null || true)
+
+    if [ -n "$OLLAMA_PIDS" ]; then
+        print_info "找到 Ollama 進程: $OLLAMA_PIDS"
+
+        # 停止所有 Ollama 實例
+        print_info "停止所有 Ollama 實例..."
         pkill -f "ollama serve" 2>/dev/null || true
-        sleep 1
-        print_success "Ollama 已停止"
+        sleep 2
+
+        # 驗證停止
+        if pgrep -f "ollama serve" >/dev/null 2>&1; then
+            print_warning "部分 Ollama 進程仍在運行，嘗試強制停止..."
+            pkill -9 -f "ollama serve" 2>/dev/null || true
+            sleep 1
+        fi
+
+        print_success "Ollama 實例已停止"
     else
         print_info "Ollama 未運行"
     fi
@@ -134,7 +148,8 @@ check_service() {
     fi
 }
 
-check_service "http://localhost:11434" "Ollama"
+check_service "http://localhost:11434" "Ollama #1 (11434)"
+check_service "http://localhost:11435" "Ollama #2 (11435)"
 check_service "http://localhost:8000" "Presenton"
 check_service "http://localhost:5000" "Backend"
 check_service "http://localhost:8080" "Frontend"

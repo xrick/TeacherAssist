@@ -253,23 +253,56 @@ curl http://localhost:8080/
              │ HTTP Requests (AJAX/Fetch)
              ▼
 ┌─────────────────────────────────────────────────────────┐
-│              Backend API (FastAPI)                       │
+│        Backend API (FastAPI - 從源碼運行)               │
 │                localhost:5000                            │
+│                (realtime logger)                         │
 │   ┌──────────────────────────────────────────────┐     │
 │   │ Routes: /api/generate, /api/progress, ...    │     │
+│   │         /api/transcript/generate             │     │
 │   └──────────────┬───────────────────────────────┘     │
 └──────────────────┼──────────────────────────────────────┘
                    │
-      ┌────────────┼────────────┐
-      │            │            │
-      ▼            ▼            ▼
-┌──────────┐ ┌──────────┐ ┌──────────┐
-│ Presenton│ │  Ollama  │ │  Pexels  │
-│   API    │ │   LLM    │ │   API    │
-│  :8000   │ │  :11434  │ │ (Cloud)  │
-└──────────┘ └──────────┘ └──────────┘
-   (Docker)     (Host)      (External)
+      ┌────────────┼─────────────────┐
+      │            │                 │
+      ▼            ▼                 ▼
+┌──────────┐ ┌──────────┐     ┌──────────┐
+│ Presenton│ │ Ollama #1│     │ Ollama #2│
+│   API    │ │gpt-oss   │     │ Zephyr   │
+│  :8000   │ │  :11434  │     │  :11435  │
+│          │ │          │     │          │
+│          │ │(簡報內容)│     │(演講稿)  │
+└────┬─────┘ └──────────┘     └──────────┘
+     │ (Docker)  (Host)          (Host)
+     │
+     ▼
+┌──────────┐
+│ Ollama #1│──────────────────┐
+│  :11434  │                  │
+└──────────┘                  │
+     (由 Presenton 使用)       │
+                              │
+                              ▼
+                        ┌──────────┐
+                        │  Pexels  │
+                        │   API    │
+                        │ (Cloud)  │
+                        └──────────┘
+                         (External)
 ```
+
+### 架構說明
+
+#### 五個核心組件
+1. **Python venv**: Backend 虛擬環境
+2. **Ollama #1 (port 11434)**: gpt-oss:20b - 簡報內容生成
+3. **Ollama #2 (port 11435)**: Zephyr 7B - 演講稿生成
+4. **Presenton API (port 8000)**: PPT 生成引擎 (Docker)
+5. **Backend (port 5000)**: API 中介層，從源碼運行，有 realtime logger
+
+#### 雙 Ollama 架構要點
+- **Ollama #1 (11434)**: 供 Backend 和 Presenton 使用，用於分析內容和生成簡報結構
+- **Ollama #2 (11435)**: 專門用於演講稿生成，使用 Zephyr 7B 模型
+- **環境變數設置**: Ollama #2 需要 `export OLLAMA_HOST=127.0.0.1:11435` 後再啟動
 
 ---
 
@@ -324,20 +357,40 @@ Content-type: text/html
 
 ## 9. 已知限制與注意事項
 
-### 9.1 Zephyr 模型未安裝
+### 9.1 Zephyr 7B 模型與獨立 Ollama 實例
 
-**狀態**: `"zephyr": "not_installed"`
+**架構**: 演講稿生成使用獨立的 Ollama 實例
 
-**影響**: 演講稿生成功能無法使用
-
-**解決方案**:
+**配置要求**:
 ```bash
-ollama pull zephyr:7b
+# 1. 設置環境變數
+export OLLAMA_HOST=127.0.0.1:11435
+
+# 2. 啟動 Ollama #2
+ollama serve &
+
+# 3. 下載 Zephyr 7B 模型（在 port 11435）
+OLLAMA_HOST=127.0.0.1:11435 ollama pull zephyr:7b
 ```
 
-安裝後重啟 backend:
+**驗證**:
 ```bash
-docker-compose restart backend
+# 檢查 Ollama #2 是否運行
+curl http://localhost:11435/api/tags
+
+# 檢查模型是否可用
+OLLAMA_HOST=127.0.0.1:11435 ollama list | grep zephyr
+```
+
+**重啟 backend** (從源碼運行):
+```bash
+# 停止當前 backend
+pkill -f "uvicorn app.main"
+
+# 重啟
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload
 ```
 
 ### 9.2 Frontend 靜態伺服器
@@ -397,32 +450,64 @@ const API_BASE_URL = window.location.hostname === 'localhost'
 
 ## 11. 快速啟動指令
 
-### 完整系統啟動
+### 完整系統啟動（雙 Ollama 架構）
 
 ```bash
-# 1. 確保 Ollama 運行
-ollama serve
+# 1. 激活 Python 虛擬環境
+cd backend
+source venv/bin/activate
+cd ..
 
-# 2. 下載必要模型
-ollama pull qwen-oss:20
-ollama pull zephyr:7b  # 可選，用於演講稿
+# 2. 啟動 Ollama #1 (gpt-oss:20b - port 11434)
+ollama serve > /tmp/ollama-11434.log 2>&1 &
+sleep 3
+ollama pull gpt-oss:20b  # 如果尚未下載
 
-# 3. 啟動 Docker 服務
-docker-compose up -d
+# 3. 啟動 Ollama #2 (Zephyr 7B - port 11435)
+export OLLAMA_HOST=127.0.0.1:11435
+ollama serve > /tmp/ollama-11435.log 2>&1 &
+sleep 3
+OLLAMA_HOST=127.0.0.1:11435 ollama pull zephyr:7b  # 如果尚未下載
+unset OLLAMA_HOST
 
-# 4. 啟動 Frontend（新終端）
+# 4. 啟動 Presenton (Docker)
+docker-compose up -d presenton
+
+# 5. 啟動 Backend（從源碼，有 realtime logger）
+cd backend
+source venv/bin/activate
+uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload &
+cd ..
+
+# 6. 啟動 Frontend（新終端）
 cd frontend
 python3 -m http.server 8080
 
-# 5. 開啟瀏覽器
+# 7. 開啟瀏覽器
 # 訪問: http://localhost:8080
+```
+
+### 或使用自動化腳本
+
+```bash
+# 啟動所有服務
+./scripts/start_system.sh
+
+# 停止所有服務
+./scripts/stop_system.sh
 ```
 
 ### 檢查系統狀態
 
 ```bash
-# 檢查所有 Docker 容器
-docker-compose ps
+# 檢查 Ollama #1 (11434)
+curl http://localhost:11434/api/tags
+
+# 檢查 Ollama #2 (11435)
+curl http://localhost:11435/api/tags
+
+# 檢查 Presenton 容器
+docker-compose ps presenton
 
 # 檢查 Backend 健康
 curl http://localhost:5000/api/health
@@ -430,8 +515,14 @@ curl http://localhost:5000/api/health
 # 檢查 Frontend
 curl -I http://localhost:8080/
 
-# 查看 Backend 日誌
-docker-compose logs -f backend
+# 查看 Backend 日誌（realtime logger）
+tail -f backend/logs/backend.log
+
+# 查看 Ollama #1 日誌
+tail -f /tmp/ollama-11434.log
+
+# 查看 Ollama #2 日誌
+tail -f /tmp/ollama-11435.log
 
 # 查看 Presenton 日誌
 docker-compose logs -f presenton

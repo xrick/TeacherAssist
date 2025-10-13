@@ -73,28 +73,29 @@ fi
 
 echo ""
 
-# ===== Step 2: 啟動 Ollama =====
-echo "Step 2: 啟動 Ollama 服務"
-echo "----------------------"
+# ===== Step 2: 啟動 Ollama #1 (gpt-oss:20b) =====
+echo "Step 2: 啟動 Ollama #1 (gpt-oss:20b - Port 11434)"
+echo "-----------------------------------------------"
 
-if pgrep -f "ollama serve" >/dev/null; then
-    print_info "Ollama 已在運行"
+# 檢查 port 11434 是否有 Ollama 運行
+if lsof -Pi :11434 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    print_info "Ollama #1 已在 port 11434 運行"
 else
-    print_info "啟動 Ollama..."
-    nohup ollama serve > /tmp/ollama.log 2>&1 &
+    print_info "啟動 Ollama #1 (port 11434)..."
+    nohup ollama serve > /tmp/ollama-11434.log 2>&1 &
     sleep 3
 
     if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
-        print_success "Ollama 啟動成功"
+        print_success "Ollama #1 (11434) 啟動成功"
     else
-        print_error "Ollama 啟動失敗"
-        cat /tmp/ollama.log | tail -10
+        print_error "Ollama #1 (11434) 啟動失敗"
+        cat /tmp/ollama-11434.log | tail -10
         exit 1
     fi
 fi
 
-# 檢查必要模型
-print_info "檢查 Ollama 模型..."
+# 檢查 gpt-oss:20b 模型
+print_info "檢查 gpt-oss:20b 模型..."
 if ollama list | grep -q "gpt-oss:20b"; then
     print_success "gpt-oss:20b 模型可用"
 else
@@ -110,10 +111,43 @@ else
     fi
 fi
 
-if ollama list | grep -q "zephyr:7b"; then
+echo ""
+
+# ===== Step 2b: 啟動 Ollama #2 (Zephyr 7B) =====
+echo "Step 2b: 啟動 Ollama #2 (Zephyr 7B - Port 11435)"
+echo "-----------------------------------------------"
+
+# 檢查 port 11435 是否有 Ollama 運行
+if lsof -Pi :11435 -sTCP:LISTEN -t >/dev/null 2>&1; then
+    print_info "Ollama #2 已在 port 11435 運行"
+else
+    print_info "啟動 Ollama #2 (port 11435)..."
+    # 設置 OLLAMA_HOST 並啟動第二個實例
+    OLLAMA_HOST=127.0.0.1:11435 nohup ollama serve > /tmp/ollama-11435.log 2>&1 &
+    sleep 3
+
+    if curl -s http://localhost:11435/api/tags >/dev/null 2>&1; then
+        print_success "Ollama #2 (11435) 啟動成功"
+    else
+        print_error "Ollama #2 (11435) 啟動失敗"
+        cat /tmp/ollama-11435.log | tail -10
+        exit 1
+    fi
+fi
+
+# 檢查 Zephyr 7B 模型
+print_info "檢查 Zephyr 7B 模型..."
+if OLLAMA_HOST=127.0.0.1:11435 ollama list | grep -q "zephyr:7b"; then
     print_success "zephyr:7b 模型可用"
 else
     print_warning "zephyr:7b 模型未安裝（演講稿功能需要）"
+    read -p "是否現在下載？(y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        OLLAMA_HOST=127.0.0.1:11435 ollama pull zephyr:7b
+    else
+        print_warning "跳過 Zephyr 7B 下載，演講稿功能將不可用"
+    fi
 fi
 
 echo ""
@@ -251,10 +285,11 @@ echo "✨ 系統啟動完成！"
 echo "================"
 echo ""
 echo "📋 服務狀態："
-echo "  ✅ Ollama:     http://localhost:11434"
-echo "  ✅ Presenton:  http://localhost:8000"
-echo "  ✅ Backend:    http://localhost:5000"
-echo "  ✅ Frontend:   http://localhost:8080"
+echo "  ✅ Ollama #1 (gpt-oss):    http://localhost:11434"
+echo "  ✅ Ollama #2 (Zephyr):     http://localhost:11435"
+echo "  ✅ Presenton:              http://localhost:8000"
+echo "  ✅ Backend (realtime log): http://localhost:5000"
+echo "  ✅ Frontend:               http://localhost:8080"
 echo ""
 echo "🌐 訪問應用程式："
 echo "  http://localhost:8080"
@@ -263,7 +298,11 @@ echo "📊 API 文件："
 echo "  http://localhost:5000/docs"
 echo ""
 echo "📝 查看即時日誌："
-echo "  tail -f backend/logs/backend.log"
+echo "  Backend:  tail -f backend/logs/backend.log"
+echo "  Ollama 1: tail -f /tmp/ollama-11434.log"
+echo "  Ollama 2: tail -f /tmp/ollama-11435.log"
+echo "  Frontend: tail -f /tmp/frontend.log"
+echo "  Presenton: docker-compose logs -f presenton"
 echo ""
 echo "🛑 停止系統："
 echo "  ./scripts/stop_system.sh"

@@ -896,13 +896,43 @@ cd frontend && python3 -m http.server 8080
 lsof -i :5000  # Backend
 lsof -i :8000  # Presenton
 lsof -i :8080  # Frontend
-lsof -i :11434 # Ollama
+lsof -i :11434 # Ollama #1
+lsof -i :11435 # Ollama #2
 
 # Kill 程序
 kill -9 <PID>
 
 # 或修改 .env 使用不同 port
 # BACKEND_PORT=5001
+```
+
+### 問題 6: 演講稿生成失敗
+
+**錯誤訊息**: `Transcript generation failed` 或 `Connection to Zephyr failed`
+
+**解決方案**:
+```bash
+# 檢查 Ollama #2 (Zephyr) 是否運行在 port 11435
+curl http://localhost:11435/api/tags
+
+# 如果未運行，啟動它
+export OLLAMA_HOST=127.0.0.1:11435
+ollama serve > /tmp/ollama-zephyr.log 2>&1 &
+sleep 3
+
+# 確認 Zephyr 7B 模型已安裝
+OLLAMA_HOST=127.0.0.1:11435 ollama list | grep zephyr
+
+# 如果模型未安裝
+OLLAMA_HOST=127.0.0.1:11435 ollama pull zephyr:7b
+
+# 測試 Zephyr API
+curl -X POST http://localhost:11435/api/generate \
+  -H "Content-Type: application/json" \
+  -d '{"model":"zephyr:7b","prompt":"Hello","stream":false}'
+
+# 重置環境變數
+unset OLLAMA_HOST
 ```
 
 ---
@@ -912,14 +942,17 @@ kill -9 <PID>
 ### 查看即時日誌
 
 ```bash
-# Backend (最詳細，從源碼運行)
+# Backend (最詳細，從源碼運行，有 realtime logger)
 tail -f backend/logs/backend.log
 
 # Presenton (Docker)
 docker-compose logs -f presenton
 
-# Ollama
-tail -f /tmp/ollama.log
+# Ollama #1 (gpt-oss:20b - port 11434)
+tail -f /tmp/ollama-11434.log
+
+# Ollama #2 (Zephyr 7B - port 11435)
+tail -f /tmp/ollama-11435.log
 
 # Frontend
 tail -f /tmp/frontend.log
@@ -943,10 +976,11 @@ grep "Error\|Exception\|Failed" backend/logs/backend.log
 ```
 TeacherAssist/
 ├── backend/logs/
-│   ├── backend.log        # Backend 主日誌
+│   ├── backend.log        # Backend 主日誌 (realtime logger)
 │   └── backend.pid        # Backend PID
 ├── /tmp/
-│   ├── ollama.log         # Ollama 日誌
+│   ├── ollama-11434.log   # Ollama #1 日誌 (gpt-oss:20b)
+│   ├── ollama-11435.log   # Ollama #2 日誌 (Zephyr 7B)
 │   └── frontend.log       # Frontend 日誌
 └── (Docker logs via docker-compose)
 ```
@@ -959,7 +993,8 @@ TeacherAssist/
 
 # 或手動清理：
 > backend/logs/backend.log
-> /tmp/ollama.log
+> /tmp/ollama-11434.log
+> /tmp/ollama-11435.log
 > /tmp/frontend.log
 ```
 
@@ -980,22 +1015,30 @@ curl http://localhost:5000/api/health | python3 -m json.tool
 ### 完整系統驗證
 
 ```bash
-# 1. Ollama
+# 1. Ollama #1 (gpt-oss:20b)
 curl http://localhost:11434/api/tags
 
-# 2. Presenton
+# 2. Ollama #2 (Zephyr 7B)
+curl http://localhost:11435/api/tags
+
+# 3. Presenton
 curl http://localhost:8000/
 
-# 3. Backend
+# 4. Backend
 curl http://localhost:5000/api/health
 
-# 4. Frontend
+# 5. Frontend
 curl -I http://localhost:8080/
 
-# 5. 端到端測試
+# 6. 端到端測試 - 簡報生成
 curl -X POST http://localhost:5000/api/generate \
   -H "Content-Type: application/json" \
   -d '{"content":"測試內容測試內容測試內容測試內容測試內容測試內容測試內容測試內容","template":"educational","language":"zh-TW"}'
+
+# 7. 端到端測試 - 演講稿生成
+curl -X POST http://localhost:5000/api/transcript/generate \
+  -H "Content-Type: application/json" \
+  -d '{"pptx_path":"output/test.pptx"}'
 ```
 
 ---
@@ -1009,7 +1052,7 @@ curl -X POST http://localhost:5000/api/generate \
 watch -n 1 'ps aux | grep -E "ollama|uvicorn|python3.*http.server" | grep -v grep'
 
 # Port 監聽狀態
-watch -n 1 'netstat -tlnp | grep -E "5000|8000|8080|11434"'
+watch -n 1 'netstat -tlnp | grep -E "5000|8000|8080|11434|11435"'
 ```
 
 ### 資源使用統計
@@ -1021,8 +1064,8 @@ ps aux | grep "uvicorn" | awk '{print "CPU: "$3"% | MEM: "$4"%"}'
 # Presenton 容器資源使用
 docker stats presenton-api --no-stream
 
-# Ollama 資源使用（可能很高，正常）
-ps aux | grep "ollama" | awk '{print "CPU: "$3"% | MEM: "$4"%"}'
+# Ollama 資源使用（兩個實例可能都很高，正常）
+ps aux | grep "ollama" | grep -v grep | awk '{print "PID: "$2" | CPU: "$3"% | MEM: "$4"%"}'
 ```
 
 ---
@@ -1109,9 +1152,10 @@ OUTPUT_DIR=./output
 
 | 服務 | Port | 用途 |
 |------|------|------|
-| Ollama | 11434 | LLM API |
+| Ollama #1 | 11434 | LLM API (gpt-oss:20b - 簡報生成) |
+| Ollama #2 | 11435 | LLM API (Zephyr 7B - 演講稿生成) |
 | Presenton | 8000 | PPT 生成 |
-| Backend | 5000 | API 中介層 |
+| Backend | 5000 | API 中介層 (realtime logger) |
 | Frontend | 8080 | Web UI |
 
 ### C. 目錄結構

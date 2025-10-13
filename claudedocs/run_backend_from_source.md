@@ -14,41 +14,59 @@ This guide explains how to run the backend service directly from source code (no
 - Direct access to backend logs and error messages
 - Easy code modification and testing
 
-## Architecture
+## Architecture (雙 Ollama 配置)
 
 ```
-┌─────────────────────────────────────────────┐
-│          Your Development Machine            │
-│                                              │
-│  ┌──────────────────┐    ┌──────────────┐  │
-│  │  Backend (Source) │    │   Presenton  │  │
-│  │   Python/FastAPI  │◄───┤   (Docker)   │  │
-│  │   localhost:5000  │    │   port 8000  │  │
-│  └──────┬───────────┘    └──────────────┘  │
-│         │                                    │
-│         └──────────────┐                    │
-│                        ▼                    │
-│              ┌──────────────┐              │
-│              │    Ollama     │              │
-│              │ localhost:11434│             │
-│              └──────────────┘              │
-└─────────────────────────────────────────────┘
-                     │
-                     ▼
-            ┌──────────────┐
-            │  Pexels API  │
-            │   (Cloud)    │
-            └──────────────┘
+┌─────────────────────────────────────────────────────────┐
+│              Your Development Machine                    │
+│                                                          │
+│  ┌────────────────────┐      ┌──────────────┐         │
+│  │ Backend (Source)   │      │  Presenton   │         │
+│  │  Python/FastAPI    │◄─────┤  (Docker)    │         │
+│  │  localhost:5000    │      │  port 8000   │         │
+│  │  (realtime logger) │      └──────┬───────┘         │
+│  └────┬───────┬───────┘             │                  │
+│       │       │                     │                  │
+│       │       │                     ▼                  │
+│       │       │           ┌──────────────┐            │
+│       │       │           │  Ollama #1   │            │
+│       │       │           │ gpt-oss:20b  │            │
+│       │       └──────────►│ port 11434   │            │
+│       │                   └──────────────┘            │
+│       │                    (簡報內容生成)              │
+│       │                                                │
+│       │                   ┌──────────────┐            │
+│       │                   │  Ollama #2   │            │
+│       └──────────────────►│  Zephyr 7B   │            │
+│                           │ port 11435   │            │
+│                           └──────────────┘            │
+│                            (演講稿生成)                 │
+│                                                        │
+└────────────────────────────┬───────────────────────────┘
+                             │
+                             ▼
+                    ┌──────────────┐
+                    │  Pexels API  │
+                    │   (Cloud)    │
+                    └──────────────┘
 ```
+
+### 架構要點
+
+- **Backend 從源碼運行**: 提供 realtime logger，方便調試
+- **Ollama #1 (port 11434)**: gpt-oss:20b 模型，用於簡報內容分析和生成
+- **Ollama #2 (port 11435)**: Zephyr 7B 模型，專門用於演講稿生成
+- **Presenton (Docker)**: PPT 生成引擎，連接到 Ollama #1
 
 ---
 
 ## Prerequisites
 
 ### 1. System Requirements
+
 - Python 3.11+ installed
 - pip and virtualenv/venv
-- Ollama installed and running
+- Ollama installed and running (需要兩個實例)
 - Docker and Docker Compose (for Presenton)
 
 ### 2. Verify Prerequisites
@@ -63,8 +81,14 @@ pip3 --version
 
 # Check Ollama
 ollama --version
+
+# Check models (需要兩個模型)
 ollama list
-# Should show qwen-oss:20 model
+# Should show gpt-oss:20b and zephyr:7b
+
+# Check if Ollama instances are running
+curl http://localhost:11434/api/tags  # Ollama #1
+curl http://localhost:11435/api/tags  # Ollama #2 (if already started)
 
 # Check Docker
 docker --version
@@ -152,8 +176,8 @@ cat .env | head -5
 # .env file should contain:
 PRESENTON_API_KEY=sk-presenton-...
 PRESENTON_API_URL=http://localhost:8000  # ← Important: localhost, not container name
-OLLAMA_URL=http://localhost:11434
-OLLAMA_MODEL=qwen-oss:20
+OLLAMA_URL=http://localhost:11434       # Ollama #1 (gpt-oss:20b)
+OLLAMA_MODEL=gpt-oss:20b                # ← Important: correct model name
 PEXELS_API_KEY=...
 BACKEND_PORT=5000
 CORS_ORIGINS=*
@@ -161,9 +185,11 @@ DEBUG=True
 OUTPUT_DIR=./output
 ```
 
-**Critical Change for Source Mode**:
+**Critical Changes for Source Mode**:
 - When running from source, `PRESENTON_API_URL` should be `http://localhost:8000`
 - In Docker, it's `http://presenton:8000` (container name)
+- `OLLAMA_URL` 指向 Ollama #1 (port 11434)
+- Ollama #2 (port 11435) 由 ZephyrService 內部配置處理
 
 ### Step 5: Update Configuration for Local Development
 
@@ -246,9 +272,12 @@ curl http://localhost:5000/api/health | python3 -m json.tool
         "presenton": "connected",
         "ollama": "connected",
         "pexels": "connected",
-        "zephyr": "not_installed"
+        "zephyr": "available"
     }
 }
+
+# Note: 如果 zephyr 顯示 "not_installed" 或 "not_available"，
+# 表示 Ollama #2 未正確啟動或 Zephyr 7B 模型未安裝
 ```
 
 ### 8.2 Check API Documentation
@@ -263,11 +292,18 @@ Open browser:
 # Check Presenton (Docker)
 curl http://localhost:8000/
 
-# Check Ollama (Host)
+# Check Ollama #1 (Host - gpt-oss:20b)
 curl http://localhost:11434/api/tags
+
+# Check Ollama #2 (Host - Zephyr 7B)
+curl http://localhost:11435/api/tags
 
 # Check Frontend (if running)
 curl -I http://localhost:8080/
+
+# Check all Ollama models
+ollama list
+# Should show both gpt-oss:20b and zephyr:7b
 ```
 
 ---
@@ -315,14 +351,24 @@ curl http://localhost:8000/
 
 **Solution**:
 ```bash
-# Start Ollama service
-ollama serve
+# Start Ollama #1 (port 11434) - gpt-oss:20b
+ollama serve > /tmp/ollama-11434.log 2>&1 &
 
-# In another terminal, verify it's running
-ollama list
-
-# Check if it's listening
+# Verify it's running
 curl http://localhost:11434/api/tags
+
+# Start Ollama #2 (port 11435) - Zephyr 7B
+export OLLAMA_HOST=127.0.0.1:11435
+ollama serve > /tmp/ollama-11435.log 2>&1 &
+
+# Verify it's running
+curl http://localhost:11435/api/tags
+
+# Reset environment variable
+unset OLLAMA_HOST
+
+# Check models are available
+ollama list | grep -E "gpt-oss:20b|zephyr:7b"
 ```
 
 ### Issue 4: Port Already in Use
