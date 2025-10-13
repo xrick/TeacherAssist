@@ -1,3 +1,4 @@
+# scripts/start_system.sh
 #!/bin/bash
 # TeacherAssist 系統啟動腳本
 # 用途: 自動啟動所有必要服務（Backend 從源碼運行）
