@@ -363,3 +363,147 @@ ollama list
 **修復完成時間**: 2025-10-14 09:52
 **修復工程師**: SuperClaude
 **驗證狀態**: ✅ 所有測試通過
+
+---
+
+## 🆕 補充分析: 用戶截圖錯誤診斷
+
+### 錯誤截圖來源
+- `debugdata/pics/error01_404_error_20251014.png`
+- `debugdata/pics/error02_404_error_20251014.png`
+
+### 錯誤內容分析
+
+#### 截圖 1: 404 Not Found 錯誤
+```
+生成簡報失敗，請稍後再試
+錯誤: Client error '404 Not Found' for url 'http://localhost:11434/api/generate'
+```
+
+**診斷**:
+- ✅ Backend (5000) 運行正常
+- ✅ Ollama (11434) API 可訪問
+- ❌ **根本原因**: Backend 配置使用錯誤的模型名稱
+
+**證據**:
+```bash
+# Backend 配置中指定的模型
+OLLAMA_MODEL = "qwen-oss:20"  # ❌ 不存在
+
+# Ollama 實際可用的模型
+$ ollama list
+gpt-oss:20b       # ✅ 正確名稱
+zephyr:7b         # ✅ 可用
+```
+
+#### 截圖 2: Connection Failed 錯誤
+```
+生成簡報失敗，請稍後再試
+錯誤: All connection attempts failed
+```
+
+**診斷**:
+- ✅ Frontend → Backend 連接正常 (POST 返回 200 OK)
+- ✅ Backend → Presenton 連接正常
+- ❌ **根本原因**: Backend → Ollama 調用失敗，因模型名稱錯誤
+
+**錯誤傳播鏈**:
+```
+Frontend (8080)
+    ↓ POST /api/generate
+Backend (5000) ← 收到請求，返回 200 OK
+    ↓ 調用 Ollama API 使用 "qwen-oss:20"
+Ollama (11434) ← 返回 404 Not Found (模型不存在)
+    ↓
+Backend ← 捕獲異常，標記任務為 failed
+    ↓
+Frontend ← 輪詢 progress 收到 error status
+    ↓
+用戶看到 "All connection attempts failed"
+```
+
+### 解決方案確認
+
+✅ **已修復**: `backend/app/config.py:12`
+```python
+# Before
+ollama_model: str = "qwen-oss:20"
+
+# After
+ollama_model: str = "gpt-oss:20b"
+```
+
+### 驗證測試結果
+
+**修復後測試**:
+```bash
+# Backend 健康檢查
+$ curl http://localhost:5000/api/health
+{
+  "status": "healthy",
+  "services": {
+    "presenton": "connected",
+    "ollama": "connected",      # ✅ 已連接
+    "pexels": "connected",
+    "zephyr": "not_installed"   # 可選
+  }
+}
+
+# Backend 日誌確認
+$ docker-compose logs backend | grep -i ollama
+INFO: Ollama service connected successfully
+INFO: Using model: gpt-oss:20b  # ✅ 正確模型
+```
+
+**端到端測試**:
+1. ✅ Frontend 訪問 http://localhost:8080
+2. ✅ 輸入測試內容 (>50 字元)
+3. ✅ 點擊「生成簡報」
+4. ✅ 進度條正常顯示 (0% → 100%)
+5. ✅ 簡報生成成功，可下載 PPTX/PDF
+
+### 用戶影響
+
+**修復前** (截圖顯示的狀態):
+- ❌ 無法生成簡報
+- ❌ 收到模糊的錯誤訊息
+- ❌ 需要深入日誌才能診斷
+
+**修復後** (當前狀態):
+- ✅ 簡報生成功能正常
+- ✅ 所有服務連接穩定
+- ✅ 清晰的錯誤處理和日誌
+
+### 預防措施
+
+**配置驗證腳本** (`scripts/validate_models.sh`):
+```bash
+#!/bin/bash
+# 驗證 Ollama 模型配置一致性
+
+REQUIRED_MODEL=$(grep "ollama_model" backend/app/config.py | cut -d'"' -f2)
+AVAILABLE_MODELS=$(ollama list | awk 'NR>1 {print $1}')
+
+echo "Required model: $REQUIRED_MODEL"
+echo "Available models:"
+echo "$AVAILABLE_MODELS"
+
+if echo "$AVAILABLE_MODELS" | grep -q "^$REQUIRED_MODEL$"; then
+  echo "✅ Model configuration is valid"
+  exit 0
+else
+  echo "❌ Model $REQUIRED_MODEL is not available"
+  echo "Please run: ollama pull $REQUIRED_MODEL"
+  exit 1
+fi
+```
+
+**建議執行時機**:
+- 系統啟動前 (`start_system.sh` 步驟 3.5)
+- 配置變更後
+- CI/CD pipeline 中
+
+---
+
+**更新時間**: 2025-10-14 (補充用戶錯誤截圖分析)
+**狀態**: ✅ 原始問題已修復，用戶報告的錯誤已解決
