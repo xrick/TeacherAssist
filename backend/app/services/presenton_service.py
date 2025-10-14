@@ -11,54 +11,40 @@ class PresentonService:
         
     async def create_presentation(
         self,
-        structure: Dict[str, Any],
-        template: str
+        content: str,
+        template: str,
+        n_slides: int = 6
     ) -> Dict[str, Any]:
-        """Create presentation using Presenton API"""
-        
+        """Create presentation using Presenton API /generate endpoint"""
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
-        
-        # Build Presenton API payload
-        payload = self._build_payload(structure, template)
-        
+
+        # Build Presenton /generate API payload
+        payload = {
+            "content": content,
+            "n_slides": n_slides,
+            "language": "zh-TW",
+            "template": template,
+            "tone": "default",
+            "verbosity": "standard",
+            "web_search": False,
+            "include_table_of_contents": False,
+            "include_title_slide": True,
+            "export_as": "pptx"
+        }
+
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
-                f"{self.base_url}/api/v1/ppt/presentation/create",
+                f"{self.base_url}/api/v1/ppt/presentation/generate",
                 headers=headers,
                 json=payload
             )
             response.raise_for_status()
             return response.json()
     
-    def _build_payload(self, structure: Dict[str, Any], template: str) -> Dict[str, Any]:
-        """Build Presenton API payload"""
-        
-        slides = []
-        for slide_data in structure.get("slides", []):
-            slide = {
-                "type": slide_data.get("type", "content"),
-                "title": slide_data.get("title", ""),
-                "content": slide_data.get("content", []),
-            }
-            
-            # Add image if available
-            if slide_data.get("image_url"):
-                slide["image"] = {
-                    "url": slide_data["image_url"],
-                    "position": "center"
-                }
-                
-            slides.append(slide)
-        
-        return {
-            "title": structure.get("title", "教學簡報"),
-            "template": template,
-            "slides": slides,
-            "language": "zh-TW"
-        }
     
     async def get_presentation_status(self, presentation_id: str) -> Dict[str, Any]:
         """Check presentation generation status"""
