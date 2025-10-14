@@ -26,7 +26,7 @@ class PresentonService:
         
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
-                f"{self.base_url}/api/v1/presentations",
+                f"{self.base_url}/api/v1/ppt/presentation/create",
                 headers=headers,
                 json=payload
             )
@@ -62,14 +62,14 @@ class PresentonService:
     
     async def get_presentation_status(self, presentation_id: str) -> Dict[str, Any]:
         """Check presentation generation status"""
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_key}"
         }
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.get(
-                f"{self.base_url}/api/v1/presentations/{presentation_id}",
+                f"{self.base_url}/api/v1/ppt/presentation/{presentation_id}",
                 headers=headers
             )
             response.raise_for_status()
@@ -77,16 +77,16 @@ class PresentonService:
     
     async def download_presentation(self, presentation_id: str, format: str = "pptx") -> bytes:
         """Download presentation file"""
-        
+
         headers = {
             "Authorization": f"Bearer {self.api_key}"
         }
-        
+
         async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.get(
-                f"{self.base_url}/api/v1/presentations/{presentation_id}/download",
+                f"{self.base_url}/api/v1/ppt/presentation/export/{format.lower()}",
                 headers=headers,
-                params={"format": format}
+                params={"id": presentation_id}
             )
             response.raise_for_status()
             return response.content
