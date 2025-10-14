@@ -1,7 +1,7 @@
-# scripts/start_system.sh
 #!/bin/bash
-# TeacherAssist 系統啟動腳本
-# 用途: 自動啟動所有必要服務（Backend 從源碼運行）
+# scripts/start_system.sh
+# TeacherAssist 系統啟動腳本（Docker 模式）
+# 用途: 自動啟動所有必要服務（統一使用 Docker）
 
 set -e
 
@@ -22,22 +22,13 @@ print_error() { echo -e "${RED}❌ $1${NC}"; }
 print_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
 print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 
-echo "🚀 TeacherAssist 系統啟動"
-echo "================================"
+echo "🚀 TeacherAssist 系統啟動（Docker 模式）"
+echo "========================================"
 echo ""
 
 # ===== Step 1: 前置需求檢查 =====
 echo "Step 1: 檢查前置需求"
 echo "-------------------"
-
-# 檢查 Python
-if command -v python3 >/dev/null 2>&1; then
-    PYTHON_VERSION=$(python3 --version | awk '{print $2}')
-    print_success "Python $PYTHON_VERSION"
-else
-    print_error "Python 3 未安裝"
-    exit 1
-fi
 
 # 檢查 Docker
 if command -v docker >/dev/null 2>&1; then
@@ -45,6 +36,16 @@ if command -v docker >/dev/null 2>&1; then
     print_success "Docker $DOCKER_VERSION"
 else
     print_error "Docker 未安裝"
+    echo "請參考: https://docs.docker.com/engine/install/"
+    exit 1
+fi
+
+# 檢查 Docker Compose
+if command -v docker-compose >/dev/null 2>&1; then
+    COMPOSE_VERSION=$(docker-compose --version | awk '{print $4}' | sed 's/,//')
+    print_success "Docker Compose $COMPOSE_VERSION"
+else
+    print_error "Docker Compose 未安裝"
     exit 1
 fi
 
@@ -57,114 +58,150 @@ else
     exit 1
 fi
 
-# 檢查虛擬環境
-if [ -d "backend/venv" ]; then
-    print_success "Python 虛擬環境存在"
+# 檢查 .env 檔案
+if [ -f ".env" ]; then
+    print_success ".env 檔案存在"
 else
-    print_warning "虛擬環境不存在，正在建立..."
-    cd backend
-    python3 -m venv venv
-    source venv/bin/activate
-    pip install -q --upgrade pip
-    pip install -q -r requirements.txt
-    deactivate
-    cd ..
-    print_success "虛擬環境已建立"
+    print_error ".env 檔案不存在"
+    echo "請參考 .env.example 建立 .env 檔案"
+    exit 1
 fi
 
 echo ""
 
-# ===== Step 2: 啟動 Ollama #1 (gpt-oss:20b) =====
-echo "Step 2: 啟動 Ollama #1 (gpt-oss:20b - Port 11434)"
-echo "-----------------------------------------------"
+# ===== Step 2: Port 衝突檢查 =====
+echo "Step 2: 檢查 Port 可用性"
+echo "----------------------"
 
-# 檢查 port 11434 是否有 Ollama 運行
-if lsof -Pi :11434 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    print_info "Ollama #1 已在 port 11434 運行"
-else
-    print_info "啟動 Ollama #1 (port 11434)..."
-    nohup ollama serve > /tmp/ollama-11434.log 2>&1 &
-    sleep 3
-
-    if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
-        print_success "Ollama #1 (11434) 啟動成功"
+check_port() {
+    local port=$1
+    local service=$2
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_warning "Port $port 已被佔用 ($service)"
+        echo "當前使用者:"
+        lsof -Pi :$port -sTCP:LISTEN | grep -v "^COMMAND" | head -3
+        read -p "是否要停止佔用該 port 的程序？(y/N): " -n 1 -r
+        echo ""
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            local pid=$(lsof -Pi :$port -sTCP:LISTEN -t)
+            kill $pid 2>/dev/null && print_success "已停止 PID: $pid"
+        else
+            print_error "Port $port 衝突，無法繼續"
+            exit 1
+        fi
     else
-        print_error "Ollama #1 (11434) 啟動失敗"
-        cat /tmp/ollama-11434.log | tail -10
+        print_success "Port $port 可用 ($service)"
+    fi
+}
+
+check_port 5000 "Backend"
+check_port 8000 "Presenton"
+check_port 8080 "Frontend"
+
+echo ""
+
+# ===== Step 3: 啟動 Ollama 服務 =====
+echo "Step 3: 啟動 Ollama 服務"
+echo "---------------------"
+
+# 檢查 Ollama 是否運行
+if ! curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+    print_info "啟動 Ollama 服務..."
+    # 啟動 Ollama daemon
+    if pgrep -x "ollama" > /dev/null; then
+        print_info "Ollama 進程已存在"
+    else
+        ollama serve > /tmp/ollama.log 2>&1 &
+        sleep 3
+    fi
+
+    # 驗證啟動
+    if curl -s http://localhost:11434/api/tags >/dev/null 2>&1; then
+        print_success "Ollama 服務啟動成功"
+    else
+        print_error "Ollama 服務啟動失敗"
+        cat /tmp/ollama.log | tail -10
         exit 1
     fi
+else
+    print_success "Ollama 服務已運行"
 fi
 
-# 檢查 gpt-oss:20b 模型
-print_info "檢查 gpt-oss:20b 模型..."
+# 檢查必要模型
+print_info "檢查 Ollama 模型..."
+
+# 檢查 gpt-oss:20b（內容分析）
 if ollama list | grep -q "gpt-oss:20b"; then
-    print_success "gpt-oss:20b 模型可用"
+    print_success "gpt-oss:20b 模型可用（內容分析）"
 else
-    print_warning "gpt-oss:20b 模型未安裝"
-    echo "請執行: ollama pull gpt-oss:20b"
+    print_warning "gpt-oss:20b 模型未安裝（必要）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
+        print_info "下載 gpt-oss:20b 模型（約 13 GB）..."
         ollama pull gpt-oss:20b
+        print_success "gpt-oss:20b 下載完成"
     else
         print_error "缺少必要模型，無法繼續"
         exit 1
     fi
 fi
 
-echo ""
-
-# ===== Step 2b: 啟動 Ollama #2 (Zephyr 7B) =====
-echo "Step 2b: 啟動 Ollama #2 (Zephyr 7B - Port 11435)"
-echo "-----------------------------------------------"
-
-# 檢查 port 11435 是否有 Ollama 運行
-if lsof -Pi :11435 -sTCP:LISTEN -t >/dev/null 2>&1; then
-    print_info "Ollama #2 已在 port 11435 運行"
+# 檢查 zephyr:7b（演講稿生成）
+if ollama list | grep -q "zephyr:7b"; then
+    print_success "zephyr:7b 模型可用（演講稿生成）"
 else
-    print_info "啟動 Ollama #2 (port 11435)..."
-    # 設置 OLLAMA_HOST 並啟動第二個實例
-    OLLAMA_HOST=127.0.0.1:11435 nohup ollama serve > /tmp/ollama-11435.log 2>&1 &
-    sleep 3
-
-    if curl -s http://localhost:11435/api/tags >/dev/null 2>&1; then
-        print_success "Ollama #2 (11435) 啟動成功"
-    else
-        print_error "Ollama #2 (11435) 啟動失敗"
-        cat /tmp/ollama-11435.log | tail -10
-        exit 1
-    fi
-fi
-
-# 檢查 Zephyr 7B 模型
-print_info "檢查 Zephyr 7B 模型..."
-if OLLAMA_HOST=127.0.0.1:11435 ollama list | grep -q "zephyr:7b"; then
-    print_success "zephyr:7b 模型可用"
-else
-    print_warning "zephyr:7b 模型未安裝（演講稿功能需要）"
+    print_warning "zephyr:7b 模型未安裝（選用，用於演講稿功能）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        OLLAMA_HOST=127.0.0.1:11435 ollama pull zephyr:7b
+        print_info "下載 zephyr:7b 模型（約 4.1 GB）..."
+        ollama pull zephyr:7b
+        print_success "zephyr:7b 下載完成"
     else
-        print_warning "跳過 Zephyr 7B 下載，演講稿功能將不可用"
+        print_warning "跳過 zephyr:7b，演講稿功能將不可用"
     fi
 fi
 
 echo ""
 
-# ===== Step 3: 啟動 Presenton =====
-echo "Step 3: 啟動 Presenton (Docker)"
-echo "------------------------------"
+# ===== Step 4: 停止舊容器（清理） =====
+echo "Step 4: 清理舊容器"
+echo "----------------"
 
-# 停止 backend 容器（如果在運行）
-docker-compose stop backend 2>/dev/null || true
+print_info "停止並移除舊容器..."
+docker-compose down 2>/dev/null || true
+print_success "舊容器已清理"
 
-# 啟動 Presenton
-print_info "啟動 Presenton 容器..."
-docker-compose up -d presenton
+echo ""
 
-print_info "等待 Presenton 啟動..."
+# ===== Step 5: 啟動 Docker 服務 =====
+echo "Step 5: 啟動 Docker 服務"
+echo "----------------------"
+
+# 檢查 Docker daemon
+if ! docker info >/dev/null 2>&1; then
+    print_error "Docker daemon 未運行"
+    echo "請執行: sudo systemctl start docker"
+    exit 1
+fi
+
+# 構建並啟動服務
+print_info "構建並啟動 Docker 容器..."
+docker-compose up -d --build
+
+# 等待服務啟動
+print_info "等待服務啟動..."
+sleep 5
+
+echo ""
+
+# ===== Step 6: 驗證服務狀態 =====
+echo "Step 6: 驗證服務狀態"
+echo "------------------"
+
+# 檢查 Presenton
+print_info "檢查 Presenton 服務..."
 for i in {1..30}; do
     if curl -s http://localhost:8000/ >/dev/null 2>&1; then
         break
@@ -172,94 +209,61 @@ for i in {1..30}; do
     sleep 1
 done
 
-# 驗證 Presenton
-if docker-compose ps presenton 2>/dev/null | grep -q "Up"; then
-    print_success "Presenton 容器運行中"
-    if curl -s http://localhost:8000/ >/dev/null 2>&1; then
-        print_success "Presenton API 響應正常"
-    else
-        print_warning "Presenton API 尚未就緒"
-    fi
+if curl -s http://localhost:8000/ >/dev/null 2>&1; then
+    print_success "Presenton API 運行正常 (http://localhost:8000)"
 else
-    print_error "Presenton 容器啟動失敗"
-    docker-compose logs presenton 2>/dev/null | tail -20
+    print_error "Presenton API 無回應"
+    docker-compose logs presenton | tail -20
     exit 1
 fi
 
-echo ""
-
-# ===== Step 4: 啟動 Backend =====
-echo "Step 4: 啟動 Backend (從源碼)"
-echo "----------------------------"
-
-# 檢查 .env 檔案
-if [ -f ".env" ]; then
-    print_success ".env 檔案存在"
-else
-    print_error ".env 檔案不存在"
-    exit 1
-fi
-
-# 檢查 backend/.env 連結
-if [ ! -f "backend/.env" ]; then
-    print_info "建立 .env 符號連結..."
-    cd backend && ln -s ../.env .env && cd ..
-fi
-
-# 啟動 Backend
-print_info "啟動 Backend 服務..."
-cd backend
-source venv/bin/activate
-
-# 建立日誌目錄
-mkdir -p logs
-
-# 啟動 uvicorn
-nohup uvicorn app.main:app --host 0.0.0.0 --port 5000 --reload \
-    > logs/backend.log 2>&1 &
-
-BACKEND_PID=$!
-echo $BACKEND_PID > logs/backend.pid
-
-cd ..
-
-print_info "等待 Backend 啟動..."
-for i in {1..15}; do
+# 檢查 Backend
+print_info "檢查 Backend 服務..."
+for i in {1..30}; do
     if curl -s http://localhost:5000/api/health >/dev/null 2>&1; then
         break
     fi
     sleep 1
 done
 
-# 驗證 Backend
 if curl -s http://localhost:5000/api/health >/dev/null 2>&1; then
-    print_success "Backend API 運行中 (PID: $BACKEND_PID)"
+    print_success "Backend API 運行正常 (http://localhost:5000)"
 
-    # 顯示健康狀態
+    # 顯示健康狀態詳情
     HEALTH_JSON=$(curl -s http://localhost:5000/api/health)
-    STATUS=$(echo "$HEALTH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])" 2>/dev/null || echo "unknown")
-    print_info "健康狀態: $STATUS"
+    STATUS=$(echo "$HEALTH_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('status', 'unknown'))" 2>/dev/null || echo "unknown")
+
+    if [ "$STATUS" = "healthy" ]; then
+        print_success "健康狀態: $STATUS"
+
+        # 顯示各服務連線狀態
+        echo "$HEALTH_JSON" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+services = data.get('services', {})
+for svc, status in services.items():
+    icon = '✅' if status in ['connected', 'available'] else '⚠️'
+    print(f'  {icon} {svc}: {status}')
+" 2>/dev/null || true
+    else
+        print_warning "健康狀態: $STATUS"
+    fi
 else
-    print_error "Backend 啟動失敗"
-    cat backend/logs/backend.log 2>/dev/null | tail -20
+    print_error "Backend API 無回應"
+    docker-compose logs backend | tail -20
     exit 1
 fi
 
 echo ""
 
-# ===== Step 5: 啟動 Frontend =====
-echo "Step 5: 啟動 Frontend 伺服器"
+# ===== Step 7: 啟動 Frontend =====
+echo "Step 7: 啟動 Frontend 伺服器"
 echo "---------------------------"
 
-# 檢查 frontend/index.html
+# 檢查 frontend 目錄
 if [ ! -f "frontend/index.html" ]; then
-    if [ -f "src/frontend/index.html" ]; then
-        print_warning "frontend/index.html 不存在，從 src/frontend 複製..."
-        cp src/frontend/index.html frontend/
-    else
-        print_error "找不到 index.html"
-        exit 1
-    fi
+    print_error "frontend/index.html 不存在"
+    exit 1
 fi
 
 # 啟動 Frontend
@@ -267,6 +271,7 @@ print_info "啟動 Frontend HTTP 伺服器..."
 cd frontend
 nohup python3 -m http.server 8080 > /tmp/frontend.log 2>&1 &
 FRONTEND_PID=$!
+echo $FRONTEND_PID > /tmp/frontend.pid
 cd ..
 
 sleep 2
@@ -276,6 +281,7 @@ if curl -s -I http://localhost:8080/ 2>&1 | grep -q "200 OK"; then
     print_success "Frontend 伺服器運行中 (PID: $FRONTEND_PID)"
 else
     print_error "Frontend 啟動失敗"
+    cat /tmp/frontend.log | tail -10
     exit 1
 fi
 
@@ -286,11 +292,10 @@ echo "✨ 系統啟動完成！"
 echo "================"
 echo ""
 echo "📋 服務狀態："
-echo "  ✅ Ollama #1 (gpt-oss):    http://localhost:11434"
-echo "  ✅ Ollama #2 (Zephyr):     http://localhost:11435"
-echo "  ✅ Presenton:              http://localhost:8000"
-echo "  ✅ Backend (realtime log): http://localhost:5000"
-echo "  ✅ Frontend:               http://localhost:8080"
+echo "  ✅ Ollama:      http://localhost:11434"
+echo "  ✅ Presenton:   http://localhost:8000"
+echo "  ✅ Backend:     http://localhost:5000"
+echo "  ✅ Frontend:    http://localhost:8080"
 echo ""
 echo "🌐 訪問應用程式："
 echo "  http://localhost:8080"
@@ -299,13 +304,17 @@ echo "📊 API 文件："
 echo "  http://localhost:5000/docs"
 echo ""
 echo "📝 查看即時日誌："
-echo "  Backend:  tail -f backend/logs/backend.log"
-echo "  Ollama 1: tail -f /tmp/ollama-11434.log"
-echo "  Ollama 2: tail -f /tmp/ollama-11435.log"
-echo "  Frontend: tail -f /tmp/frontend.log"
+echo "  Backend:   docker-compose logs -f backend"
 echo "  Presenton: docker-compose logs -f presenton"
+echo "  Frontend:  tail -f /tmp/frontend.log"
+echo "  Ollama:    tail -f /tmp/ollama.log"
 echo ""
 echo "🛑 停止系統："
 echo "  ./scripts/stop_system.sh"
+echo ""
+echo "🐛 除錯指令："
+echo "  docker-compose ps              # 查看容器狀態"
+echo "  docker-compose logs backend    # 查看 Backend 日誌"
+echo "  curl http://localhost:5000/api/health  # 測試 Backend"
 echo ""
 echo "🎉 準備就緒！開始使用 TeacherAssist 吧！"

@@ -1,3 +1,4 @@
+# backend/app/config.py
 from pydantic_settings import BaseSettings
 from functools import lru_cache
 
@@ -8,7 +9,7 @@ class Settings(BaseSettings):
     
     # Ollama Configuration
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen-oss:20"
+    ollama_model: str = "gpt-oss:20b"
     
     # Pexels Configuration
     pexels_api_key: str

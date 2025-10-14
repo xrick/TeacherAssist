@@ -21,140 +21,131 @@ print_error() { echo -e "${RED}❌ $1${NC}"; }
 print_info() { echo -e "${BLUE}ℹ️  $1${NC}"; }
 print_warning() { echo -e "${YELLOW}⚠️  $1${NC}"; }
 
-echo "🛑 TeacherAssist 系統停止"
-echo "================================"
+echo "🛑 TeacherAssist 系統停止（Docker 模式）"
+echo "========================================"
 echo ""
 
 # ===== Step 1: 停止 Frontend =====
 echo "Step 1: 停止 Frontend"
 echo "--------------------"
 
-FRONTEND_PIDS=$(ps aux | grep "python3.*http.server.*8080" | grep -v grep | awk '{print $2}')
-if [ -n "$FRONTEND_PIDS" ]; then
-    print_info "停止 Frontend (PID: $FRONTEND_PIDS)..."
-    echo "$FRONTEND_PIDS" | xargs kill 2>/dev/null || true
-    sleep 1
-    print_success "Frontend 已停止"
-else
-    print_info "Frontend 未運行"
-fi
-
-echo ""
-
-# ===== Step 2: 停止 Backend =====
-echo "Step 2: 停止 Backend"
-echo "-------------------"
-
-# 從 PID 檔案讀取
-if [ -f "backend/logs/backend.pid" ]; then
-    BACKEND_PID=$(cat backend/logs/backend.pid)
-    if ps -p $BACKEND_PID >/dev/null 2>&1; then
-        print_info "停止 Backend (PID: $BACKEND_PID)..."
-        kill $BACKEND_PID 2>/dev/null || true
-        sleep 2
-
-        # 如果還在運行，強制停止
-        if ps -p $BACKEND_PID >/dev/null 2>&1; then
-            kill -9 $BACKEND_PID 2>/dev/null || true
-        fi
-
-        rm -f backend/logs/backend.pid
-        print_success "Backend 已停止"
+# 從 PID 檔案停止
+if [ -f "/tmp/frontend.pid" ]; then
+    FRONTEND_PID=$(cat /tmp/frontend.pid)
+    if ps -p $FRONTEND_PID >/dev/null 2>&1; then
+        kill $FRONTEND_PID 2>/dev/null && print_success "Frontend 已停止 (PID: $FRONTEND_PID)"
+        rm -f /tmp/frontend.pid
     else
-        print_info "Backend PID 檔案存在但程序未運行"
-        rm -f backend/logs/backend.pid
+        print_info "Frontend PID 檔案存在但程序未運行"
+        rm -f /tmp/frontend.pid
     fi
 else
-    # 嘗試找到所有 uvicorn 程序
-    BACKEND_PIDS=$(ps aux | grep "uvicorn app.main" | grep -v grep | awk '{print $2}')
-    if [ -n "$BACKEND_PIDS" ]; then
-        print_info "停止 Backend (PID: $BACKEND_PIDS)..."
-        echo "$BACKEND_PIDS" | xargs kill 2>/dev/null || true
+    # 嘗試通過進程名停止
+    FRONTEND_PIDS=$(ps aux | grep "python3.*http.server.*8080" | grep -v grep | awk '{print $2}')
+    if [ -n "$FRONTEND_PIDS" ]; then
+        print_info "停止 Frontend (PID: $FRONTEND_PIDS)..."
+        echo "$FRONTEND_PIDS" | xargs kill 2>/dev/null || true
         sleep 1
-        print_success "Backend 已停止"
+        print_success "Frontend 已停止"
     else
-        print_info "Backend 未運行"
+        print_info "Frontend 未運行"
     fi
 fi
 
 echo ""
 
-# ===== Step 3: 停止 Presenton =====
-echo "Step 3: 停止 Presenton"
-echo "---------------------"
+# ===== Step 2: 停止 Docker 容器 =====
+echo "Step 2: 停止 Docker 容器"
+echo "----------------------"
 
-if docker-compose ps presenton 2>/dev/null | grep -q "Up"; then
-    print_info "停止 Presenton 容器..."
-    docker-compose stop presenton
-    print_success "Presenton 已停止"
+# 檢查 Docker 是否運行
+if ! docker info >/dev/null 2>&1; then
+    print_warning "Docker daemon 未運行，跳過容器停止"
 else
-    print_info "Presenton 未運行"
+    # 停止並移除容器
+    print_info "停止所有 Docker 容器..."
+    if docker-compose ps -q | grep -q .; then
+        docker-compose down
+        print_success "Docker 容器已停止並移除"
+    else
+        print_info "無運行中的 Docker 容器"
+    fi
 fi
 
 echo ""
 
-# ===== Step 4: 停止 Ollama 實例 (可選) =====
-echo "Step 4: 停止 Ollama 實例 (可選)"
+# ===== Step 3: 停止 Ollama 服務 (可選) =====
+echo "Step 3: 停止 Ollama 服務（可選）"
 echo "------------------------------"
 
-print_warning "Ollama 服務可能被其他應用使用"
-read -p "是否停止所有 Ollama 實例？(y/N): " -n 1 -r
-echo ""
-
-if [[ $REPLY =~ ^[Yy]$ ]]; then
-    # 查找所有 ollama serve 進程
-    OLLAMA_PIDS=$(pgrep -f "ollama serve" 2>/dev/null || true)
-
-    if [ -n "$OLLAMA_PIDS" ]; then
-        print_info "找到 Ollama 進程: $OLLAMA_PIDS"
-
-        # 停止所有 Ollama 實例
-        print_info "停止所有 Ollama 實例..."
-        pkill -f "ollama serve" 2>/dev/null || true
+if pgrep -x "ollama" > /dev/null; then
+    print_warning "Ollama 服務仍在運行"
+    read -p "是否要停止 Ollama 服務？(y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        pkill -x "ollama" 2>/dev/null
         sleep 2
-
-        # 驗證停止
-        if pgrep -f "ollama serve" >/dev/null 2>&1; then
-            print_warning "部分 Ollama 進程仍在運行，嘗試強制停止..."
-            pkill -9 -f "ollama serve" 2>/dev/null || true
-            sleep 1
+        if pgrep -x "ollama" > /dev/null; then
+            print_warning "Ollama 仍在運行，嘗試強制停止..."
+            pkill -9 -x "ollama" 2>/dev/null
         fi
-
-        print_success "Ollama 實例已停止"
+        print_success "Ollama 已停止"
     else
-        print_info "Ollama 未運行"
+        print_info "保留 Ollama 服務運行"
     fi
 else
-    print_info "保持 Ollama 運行"
+    print_info "Ollama 未運行"
 fi
+
+echo ""
+
+# ===== Step 4: 清理臨時文件 =====
+echo "Step 4: 清理臨時文件"
+echo "------------------"
+
+# 清理日誌和 PID 文件
+for file in /tmp/frontend.log /tmp/frontend.pid /tmp/ollama.log; do
+    if [ -f "$file" ]; then
+        rm -f "$file"
+        print_success "已清理 $(basename $file)"
+    fi
+done
+
+echo ""
+
+# ===== Step 5: 驗證停止狀態 =====
+echo "Step 5: 驗證停止狀態"
+echo "------------------"
+
+# 檢查 Port 佔用
+check_port_free() {
+    local port=$1
+    local service=$2
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_warning "Port $port 仍被佔用 ($service)"
+        lsof -Pi :$port -sTCP:LISTEN | grep -v "^COMMAND" | head -3
+        return 1
+    else
+        print_success "Port $port 已釋放 ($service)"
+        return 0
+    fi
+}
+
+check_port_free 5000 "Backend"
+check_port_free 8000 "Presenton"
+check_port_free 8080 "Frontend"
 
 echo ""
 
 # ===== 完成 =====
-echo "✅ 系統停止完成！"
-echo "==============="
+echo "✅ 系統已停止"
+echo "============"
 echo ""
-echo "📋 服務狀態："
+echo "💡 提示："
+echo "  - Ollama 服務可能仍在運行（用於其他專案）"
+echo "  - 輸出檔案保留在 ./output 目錄"
+echo "  - 若需完全清理，請執行: docker system prune"
 echo ""
-
-# 檢查各服務狀態
-check_service() {
-    local url=$1
-    local name=$2
-    if curl -s -o /dev/null -w "%{http_code}" "$url" 2>&1 | grep -q "000\|Connection refused"; then
-        echo "  ⭕ $name: 已停止"
-    else
-        echo "  ⚠️  $name: 仍在運行"
-    fi
-}
-
-check_service "http://localhost:11434" "Ollama #1 (11434)"
-check_service "http://localhost:11435" "Ollama #2 (11435)"
-check_service "http://localhost:8000" "Presenton"
-check_service "http://localhost:5000" "Backend"
-check_service "http://localhost:8080" "Frontend"
-
-echo ""
-echo "🔄 重新啟動系統："
+echo "🚀 重新啟動系統："
 echo "  ./scripts/start_system.sh"
 echo ""
