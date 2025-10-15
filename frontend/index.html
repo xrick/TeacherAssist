@@ -744,7 +744,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
             }
 
             async pollProgress(taskId) {
-                const maxAttempts = 120;
+                const maxAttempts = 600;  // 10 minutes (600 seconds)
                 let attempts = 0;
 
                 const poll = async () => {

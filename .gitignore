@@ -1,6 +1,7 @@
 # .gitignore
 .DS_Store
 APIs/presenton/
+notebook
 # Environment variables
 # .env
 # .env.local
