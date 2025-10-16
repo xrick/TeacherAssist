@@ -1,3 +1,4 @@
+.gitignore.txt
 # Environment variables
 .env
 .env.local
