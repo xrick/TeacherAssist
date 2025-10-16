@@ -1,7 +1,0 @@
-# .gitmodules
-[submodule "presenton"]
-	path = presenton
-	url = https://github.com/xrick/lcj_presenton.git
-	branch = main
-
-

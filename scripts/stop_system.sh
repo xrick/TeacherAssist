@@ -131,7 +131,7 @@ check_port_free() {
     fi
 }
 
-check_port_free 5000 "Backend"
+check_port_free 5050 "Backend"
 check_port_free 8000 "Presenton"
 check_port_free 8080 "Frontend"
 

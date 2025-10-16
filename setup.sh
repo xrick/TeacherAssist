@@ -189,7 +189,7 @@ fi
 
 # Check Backend
 sleep 5
-if curl -s http://localhost:5000/api/health > /dev/null 2>&1; then
+if curl -s http://localhost:5050/api/health > /dev/null 2>&1; then
     print_success "Backend API is responding"
 else
     print_info "Backend API may still be starting... (this is normal)"
@@ -215,14 +215,14 @@ echo "1. Check service logs:"
 echo "   docker-compose logs -f"
 echo ""
 echo "2. Test the API:"
-echo "   curl http://localhost:5000/api/health"
+echo "   curl http://localhost:5050/api/health"
 echo ""
 echo "3. Open the frontend:"
 echo "   cd frontend && python3 -m http.server 8080"
 echo "   Then visit: http://localhost:8080"
 echo ""
 echo "4. View API documentation:"
-echo "   http://localhost:5000/docs"
+echo "   http://localhost:5050/docs"
 echo ""
 echo "5. Monitor containers:"
 echo "   docker-compose ps"

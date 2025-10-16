@@ -61,7 +61,7 @@ echo ""
 # Test 3: Backend API
 echo "Test 3: Backend Health Check"
 echo "----------------------------"
-HEALTH_RESPONSE=$(curl -s http://localhost:5000/api/health)
+HEALTH_RESPONSE=$(curl -s http://localhost:5050/api/health)
 if echo "$HEALTH_RESPONSE" | grep -q "healthy"; then
     print_success "Backend health check passed"
     echo "$HEALTH_RESPONSE" | python3 -m json.tool 2>/dev/null || echo "$HEALTH_RESPONSE"
@@ -100,7 +100,7 @@ print_info "Starting presentation generation..."
 TEST_CONTENT="人工智慧在現代教育中扮演重要角色。首先，AI可以提供個性化學習體驗，根據每個學生的學習進度和能力調整教學內容。其次，智能輔助系統能夠減輕教師的工作負擔，讓他們有更多時間專注於學生互動。第三，透過數據分析，AI能夠識別學生的學習困難並提供針對性幫助。最後，虛擬實境和擴增實境技術為學生創造沉浸式學習環境。總體而言，AI技術正在改變傳統教育模式，為未來教育開闢新的可能性。"
 
 # Start generation
-GENERATE_RESPONSE=$(curl -s -X POST http://localhost:5000/api/generate \
+GENERATE_RESPONSE=$(curl -s -X POST http://localhost:5050/api/generate \
     -H "Content-Type: application/json" \
     -d "{
         \"content\": \"$TEST_CONTENT\",
@@ -112,17 +112,17 @@ TASK_ID=$(echo "$GENERATE_RESPONSE" | grep -o '"task_id":"[^"]*' | cut -d'"' -f4
 
 if [ -n "$TASK_ID" ]; then
     print_success "Generation started with task ID: $TASK_ID"
-    
+
     # Poll for completion
     print_info "Waiting for generation to complete..."
     MAX_ATTEMPTS=60
     ATTEMPT=0
-    
+
     while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
         sleep 2
         ATTEMPT=$((ATTEMPT + 1))
-        
-        PROGRESS_RESPONSE=$(curl -s http://localhost:5000/api/progress/$TASK_ID)
+
+        PROGRESS_RESPONSE=$(curl -s http://localhost:5050/api/progress/$TASK_ID)
         STATUS=$(echo "$PROGRESS_RESPONSE" | grep -o '"status":"[^"]*' | cut -d'"' -f4)
         PROGRESS=$(echo "$PROGRESS_RESPONSE" | grep -o '"progress":[0-9]*' | cut -d':' -f2)
         MESSAGE=$(echo "$PROGRESS_RESPONSE" | grep -o '"current_step":"[^"]*' | cut -d'"' -f4)
@@ -140,9 +140,9 @@ if [ -n "$TASK_ID" ]; then
                 
                 # Try to download
                 print_info "Testing download endpoints..."
-                
+
                 DOWNLOAD_RESPONSE=$(curl -s -o /dev/null -w "%{http_code}" \
-                    http://localhost:5000/api/download/$PRESENTATION_ID/pptx)
+                    http://localhost:5050/api/download/$PRESENTATION_ID/pptx)
                 
                 if [ "$DOWNLOAD_RESPONSE" = "200" ]; then
                     print_success "PPTX download endpoint working"

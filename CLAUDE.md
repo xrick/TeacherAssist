@@ -28,11 +28,12 @@ Frontend (HTML/JS) → Backend (FastAPI) → Presenton API (PPT Generation)
    - Provides transcript generation using Zephyr 7B model
    - Located in TWO places: `src/backend/` (reference) and `backend/` (deployment)
 
-2. **Presenton Integration** (`presenton/`)
-   - Third-party open-source PowerPoint generation engine
+2. **Presenton Integration**
+   - Third-party PowerPoint generation service (pre-built Docker image)
    - FastAPI server with template support
    - Runs as separate Docker container (port 8000)
-   - Integrated as Git submodule from https://github.com/presenton/presenton.git
+   - Uses official image: `ghcr.io/presenton/presenton:latest`
+   - No source code required in project
 
 3. **Ollama LLM Integration**
    - Content analysis: `qwen-oss:20` model
@@ -97,7 +98,7 @@ docker-compose build
 docker-compose up -d
 
 # 5. Check service health
-curl http://localhost:5000/api/health
+curl http://localhost:5050/api/health
 curl http://localhost:8000/health
 curl http://localhost:11434/api/tags
 ```
@@ -130,7 +131,7 @@ docker-compose up -d --build backend
 ./test.sh
 
 # Manual API tests
-curl http://localhost:5000/api/health              # Backend health
+curl http://localhost:5050/api/health              # Backend health
 curl http://localhost:11434/api/tags               # Ollama models
 curl http://localhost:8000/health                  # Presenton status
 

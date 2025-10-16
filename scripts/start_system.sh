@@ -94,7 +94,7 @@ check_port() {
     fi
 }
 
-check_port 5000 "Backend"
+check_port 5050 "Backend"
 check_port 8000 "Presenton"
 check_port 8080 "Frontend"
 
@@ -220,17 +220,17 @@ fi
 # 檢查 Backend
 print_info "檢查 Backend 服務..."
 for i in {1..30}; do
-    if curl -s http://localhost:5000/api/health >/dev/null 2>&1; then
+    if curl -s http://localhost:5050/api/health >/dev/null 2>&1; then
         break
     fi
     sleep 1
 done
 
-if curl -s http://localhost:5000/api/health >/dev/null 2>&1; then
-    print_success "Backend API 運行正常 (http://localhost:5000)"
+if curl -s http://localhost:5050/api/health >/dev/null 2>&1; then
+    print_success "Backend API 運行正常 (http://localhost:5050)"
 
     # 顯示健康狀態詳情
-    HEALTH_JSON=$(curl -s http://localhost:5000/api/health)
+    HEALTH_JSON=$(curl -s http://localhost:5050/api/health)
     STATUS=$(echo "$HEALTH_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data.get('status', 'unknown'))" 2>/dev/null || echo "unknown")
 
     if [ "$STATUS" = "healthy" ]; then
@@ -294,14 +294,14 @@ echo ""
 echo "📋 服務狀態："
 echo "  ✅ Ollama:      http://localhost:11434"
 echo "  ✅ Presenton:   http://localhost:8000"
-echo "  ✅ Backend:     http://localhost:5000"
+echo "  ✅ Backend:     http://localhost:5050"
 echo "  ✅ Frontend:    http://localhost:8080"
 echo ""
 echo "🌐 訪問應用程式："
 echo "  http://localhost:8080"
 echo ""
 echo "📊 API 文件："
-echo "  http://localhost:5000/docs"
+echo "  http://localhost:5050/docs"
 echo ""
 echo "📝 查看即時日誌："
 echo "  Backend:   docker-compose logs -f backend"
@@ -315,6 +315,6 @@ echo ""
 echo "🐛 除錯指令："
 echo "  docker-compose ps              # 查看容器狀態"
 echo "  docker-compose logs backend    # 查看 Backend 日誌"
-echo "  curl http://localhost:5000/api/health  # 測試 Backend"
+echo "  curl http://localhost:5050/api/health  # 測試 Backend"
 echo ""
 echo "🎉 準備就緒！開始使用 TeacherAssist 吧！"
