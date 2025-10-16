@@ -1,0 +1,6 @@
+
+
+Backend:   docker-compose logs -f backend
+  Presenton: docker-compose logs -f presenton
+  Frontend:  tail -f /tmp/frontend.log
+  Ollama:    tail -f /tmp/ollama.log
