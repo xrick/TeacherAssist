@@ -28,11 +28,11 @@ Frontend (HTML/JS) → Backend (FastAPI) → Presenton API (PPT Generation)
    - Provides transcript generation using Zephyr 7B model
    - Located in TWO places: `src/backend/` (reference) and `backend/` (deployment)
 
-2. **Presenton Integration** (`src/APIs/presenton/`)
+2. **Presenton Integration** (`presenton/`)
    - Third-party open-source PowerPoint generation engine
    - FastAPI server with template support
    - Runs as separate Docker container (port 8000)
-   - Reference implementation in `src/APIs/presenton/`
+   - Integrated as Git submodule from https://github.com/presenton/presenton.git
 
 3. **Ollama LLM Integration**
    - Content analysis: `qwen-oss:20` model

@@ -83,10 +83,11 @@ image: ghcr.io/presenton/presenton:latest
 
 If you need specific customization or the official image doesn't work:
 
-1. **Clone Presenton repository**:
+1. **Clone Presenton repository** (already integrated as submodule in `presenton/` directory):
    ```bash
-   git clone https://github.com/presenton/presenton.git src/APIs/presenton
-   cd src/APIs/presenton
+   # Presenton is now a Git submodule at ./presenton
+   git submodule update --init --recursive
+   cd presenton
    ```
 
 2. **Build locally**:
