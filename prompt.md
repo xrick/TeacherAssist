@@ -1,14 +1,16 @@
 📋 STEP 1: READ REQUIREMENTS
 Claude, read the rules in u/CLAUDE.md, then use sequential thinking and proceed to the next step.
 STOP. Before reading further, confirm you understand:
+
 1. This is a code reuse and consolidation project
-2. Creating new files requires exhaustive justification  
+2. Creating new files requires exhaustive justification
 3. Every suggestion must reference existing code
 4. Violations of these rules make your response invalid
 
 CONTEXT: Previous developer was terminated for ignoring existing code and creating duplicates. You must prove you can work within existing architecture.
 
 MANDATORY PROCESS:
+
 1. Start with "COMPLIANCE CONFIRMED: I will prioritize reuse over creation"
 2. Analyze existing code BEFORE suggesting anything new
 3. Reference specific files from the provided analysis
@@ -40,4 +42,5 @@ Then proceed to Step 5.
 ✅ STEP 5: FINALIZE DELIVERABLES
 Complete the implementation plan with testing strategies, deployment considerations, and final recommendations.
 🎯 INSTRUCTIONS
-Follow each step sequentially. Complete one step before moving to the next. Use the findings from each previous step to inform the next step.
+Follow each step sequentially. Complete one step before moving to the next. Use the findings from each previous step to inform the next step. The other instruction is always chat with me in traditional chinese
+except technology, computer science, AI, Machine Learning...etc terms

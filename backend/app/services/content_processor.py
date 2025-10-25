@@ -32,9 +32,9 @@ class ContentProcessor:
             self._update_progress(task_id, 60, "正在生成簡報...")
 
             # Presenton handles everything: content analysis, layout, images, generation
+            # Note: template parameter removed - using Presenton's default styling
             presentation_result = await self.presenton.create_presentation(
                 content=content,
-                template=template,
                 n_slides=6  # Generate 6 slides by default
             )
 
@@ -49,6 +49,22 @@ class ContentProcessor:
                 pres_path = presentation_result.get("presentation_path", "")
                 presentation_id = pres_path.split("/")[-1].replace(".pptx", "") if pres_path else str(uuid.uuid4())
 
+            # Fetch full presentation details including slides
+            presentation_details = await self.presenton.get_presentation_status(presentation_id)
+
+            # Extract slides from Presenton response and convert to our format
+            presenton_slides = presentation_details.get("slides", [])
+            slides = []
+            for slide in presenton_slides:
+                slide_content = slide.get("content", {})
+                slides.append({
+                    "title": slide_content.get("title", ""),
+                    "type": "content",  # Presenton doesn't specify type, default to content
+                    "content": self._extract_slide_content(slide_content),
+                    "image_query": slide_content.get("image", {}).get("__image_prompt__", ""),
+                    "image_url": slide_content.get("image", {}).get("__image_url__", "")
+                })
+
             result = {
                 "task_id": task_id,
                 "status": "completed",
@@ -56,8 +72,9 @@ class ContentProcessor:
                 "message": "簡報生成完成",
                 "current_step": "完成",
                 "presentation": {
-                    "title": "AI生成簡報",
-                    "slides": []  # Presenton handles slides internally
+                    "title": presentation_details.get("title", "AI生成簡報"),
+                    "slides": slides,
+                    "template": template  # Add template field for Pydantic validation
                 },
                 "presentation_id": presentation_id,
                 "download_url": f"/api/download/{presentation_id}/pptx",
@@ -81,16 +98,44 @@ class ContentProcessor:
             self.tasks[task_id] = error_result
             return error_result
     
+    def _extract_slide_content(self, slide_content: Dict[str, Any]) -> list:
+        """Extract bullet points or content from Presenton slide"""
+        content = []
+
+        # Extract from bulletPoints if available
+        bullet_points = slide_content.get("bulletPoints", [])
+        for bullet in bullet_points:
+            if isinstance(bullet, dict):
+                title = bullet.get("title", "")
+                description = bullet.get("description", "")
+                # Combine title and description if both exist
+                if title and description:
+                    content.append(f"{title}: {description}")
+                elif title:
+                    content.append(title)
+                elif description:
+                    content.append(description)
+            elif isinstance(bullet, str):
+                content.append(bullet)
+
+        # If no bullet points, try to get description
+        if not content:
+            description = slide_content.get("description", "")
+            if description:
+                content.append(description)
+
+        return content
+
     async def _enrich_with_images(self, structure: Dict[str, Any]) -> Dict[str, Any]:
         """Add images to slides"""
-        
+
         for slide in structure.get("slides", []):
             image_query = slide.get("image_query")
             if image_query:
                 image_url = await self.pexels.search_image(image_query)
                 if image_url:
                     slide["image_url"] = image_url
-                    
+
         return structure
     
     def _update_progress(self, task_id: str, progress: int, message: str):

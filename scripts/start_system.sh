@@ -238,18 +238,18 @@ echo "------------------"
 
 # 檢查 Presenton
 print_info "檢查 Presenton 服務..."
-for i in {1..30}; do
-    if curl -s http://localhost:8000/ >/dev/null 2>&1; then
+for i in {1..60}; do
+    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
         break
     fi
     sleep 1
 done
 
-if curl -s http://localhost:8000/ >/dev/null 2>&1; then
+if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
     print_success "Presenton API 運行正常 (http://localhost:8000)"
 else
     print_error "Presenton API 無回應"
-    docker compose logs presenton | tail -20
+    docker compose logs presenton | tail -30
     exit 1
 fi
 
