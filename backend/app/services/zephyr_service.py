@@ -4,12 +4,12 @@ from typing import Dict, Any, List
 from app.config import get_settings
 
 class ZephyrService:
-    """Service for generating presentation transcripts using Zephyr 7B model"""
+    """Service for generating presentation transcripts using Ollama model"""
     
     def __init__(self):
         self.settings = get_settings()
         self.base_url = self.settings.ollama_url
-        self.model = "zephyr:7b"  # Zephyr 7B model
+        self.model = "phi4-mini-reasoning:3.8b"
         
     async def generate_transcript(
         self,
@@ -190,7 +190,7 @@ class ZephyrService:
         return "\n".join(full_text)
     
     async def check_model_availability(self) -> bool:
-        """Check if Zephyr model is available"""
+        """Check if transcript model is available"""
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(f"{self.base_url}/api/tags")
@@ -199,29 +199,30 @@ class ZephyrService:
                 
                 models = data.get("models", [])
                 for model in models:
-                    if "zephyr" in model.get("name", "").lower():
+                    name = model.get("name", "").lower()
+                    if "phi4-mini-reasoning:3.8b" in name or "phi4-mini" in name:
                         return True
                 
                 return False
         except Exception as e:
-            print(f"Error checking Zephyr model: {e}")
+            print(f"Error checking transcript model: {e}")
             return False
     
     async def download_model_if_needed(self) -> bool:
-        """Download Zephyr model if not available"""
+        """Download transcript model if not available"""
         
         if await self.check_model_availability():
             return True
         
         try:
-            print("Downloading Zephyr 7B model... This may take a few minutes.")
+            print("Downloading phi4-mini-reasoning:3.8b model... This may take a few minutes.")
             async with httpx.AsyncClient(timeout=600.0) as client:
                 response = await client.post(
                     f"{self.base_url}/api/pull",
-                    json={"name": "zephyr:7b"}
+                    json={"name": "phi4-mini-reasoning:3.8b"}
                 )
                 response.raise_for_status()
                 return True
         except Exception as e:
-            print(f"Error downloading Zephyr model: {e}")
+            print(f"Error downloading transcript model: {e}")
             return False

@@ -1,0 +1,7 @@
+version: '3.8'
+
+services:
+  presenton:
+    image: presenton:arm64-local
+    platform: linux/arm64
+

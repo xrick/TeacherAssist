@@ -1,5 +1,6 @@
 # .gitignore
 presento/
+taenv/
 .DS_Store
 notebook
 # Environment variables

@@ -876,8 +876,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                         <div class="transcript-loading" style="color: var(--text-secondary);">
                             ⚠️ 生成演講稿失敗<br>
                             ${error.message}<br><br>
-                            ${error.message.includes('Zephyr') ? 
-                                '請先下載 Zephyr 7B 模型：<br><code>ollama pull zephyr:7b</code>' : 
+                            ${error.message.includes('phi4-mini') ? 
+                                '請先下載 Transcript 模型：<br><code>ollama pull phi4-mini-reasoning:3.8b</code>' : 
                                 '請檢查服務狀態並重試'
                             }
                         </div>

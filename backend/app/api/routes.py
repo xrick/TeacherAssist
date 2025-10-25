@@ -13,6 +13,9 @@ settings = get_settings()
 presenton = PresentonService()
 zephyr = ZephyrService()
 
+# Simple in-memory cache for transcripts
+transcripts_cache = {}
+
 @router.post("/generate", response_model=GenerateResponse)
 async def generate_presentation(
     request: GenerateRequest,
@@ -103,7 +106,7 @@ async def generate_transcript(request: TranscriptRequest):
     if not await zephyr.check_model_availability():
         raise HTTPException(
             status_code=503,
-            detail="Zephyr 7B model not available. Please run: ollama pull zephyr:7b"
+            detail="Transcript model not available. Please run: ollama pull phi4-mini-reasoning:3.8b"
         )
     
     # Get presentation data from content processor

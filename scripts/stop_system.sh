@@ -64,8 +64,8 @@ if ! docker info >/dev/null 2>&1; then
 else
     # 停止並移除容器
     print_info "停止所有 Docker 容器..."
-    if docker-compose ps -q | grep -q .; then
-        docker-compose down
+    if docker compose ps -q | grep -q .; then
+        docker compose down
         print_success "Docker 容器已停止並移除"
     else
         print_info "無運行中的 Docker 容器"

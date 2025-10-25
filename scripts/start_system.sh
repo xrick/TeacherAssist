@@ -40,12 +40,12 @@ else
     exit 1
 fi
 
-# 檢查 Docker Compose
-if command -v docker-compose >/dev/null 2>&1; then
-    COMPOSE_VERSION=$(docker-compose --version | awk '{print $4}' | sed 's/,//')
+# 檢查 Docker Compose (v2)
+if docker compose version >/dev/null 2>&1; then
+    COMPOSE_VERSION=$(docker compose version --short 2>/dev/null || echo "v2")
     print_success "Docker Compose $COMPOSE_VERSION"
 else
-    print_error "Docker Compose 未安裝"
+    print_error "Docker Compose (v2) 未安裝"
     exit 1
 fi
 
@@ -147,19 +147,19 @@ else
     fi
 fi
 
-# 檢查 zephyr:7b（演講稿生成）
-if ollama list | grep -q "zephyr:7b"; then
-    print_success "zephyr:7b 模型可用（演講稿生成）"
+# 檢查 phi4-mini-reasoning:3.8b（演講稿生成）
+if ollama list | grep -qi "phi4-mini-reasoning:3.8b"; then
+    print_success "phi4-mini-reasoning:3.8b 模型可用（演講稿生成）"
 else
-    print_warning "zephyr:7b 模型未安裝（選用，用於演講稿功能）"
+    print_warning "phi4-mini-reasoning:3.8b 模型未安裝（用於演講稿功能）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 zephyr:7b 模型（約 4.1 GB）..."
-        ollama pull zephyr:7b
-        print_success "zephyr:7b 下載完成"
+        print_info "下載 phi4-mini-reasoning:3.8b 模型..."
+        ollama pull phi4-mini-reasoning:3.8b
+        print_success "phi4-mini-reasoning:3.8b 下載完成"
     else
-        print_warning "跳過 zephyr:7b，演講稿功能將不可用"
+        print_warning "跳過 phi4-mini-reasoning:3.8b，演講稿功能將不可用"
     fi
 fi
 
@@ -170,7 +170,7 @@ echo "Step 4: 清理舊容器"
 echo "----------------"
 
 print_info "停止並移除舊容器..."
-docker-compose down 2>/dev/null || true
+docker compose down 2>/dev/null || true
 print_success "舊容器已清理"
 
 echo ""
@@ -188,7 +188,7 @@ fi
 
 # 構建並啟動服務
 print_info "構建並啟動 Docker 容器..."
-docker-compose up -d --build
+docker compose up -d --build
 
 # 等待服務啟動
 print_info "等待服務啟動..."
@@ -213,7 +213,7 @@ if curl -s http://localhost:8000/ >/dev/null 2>&1; then
     print_success "Presenton API 運行正常 (http://localhost:8000)"
 else
     print_error "Presenton API 無回應"
-    docker-compose logs presenton | tail -20
+    docker compose logs presenton | tail -20
     exit 1
 fi
 
@@ -250,7 +250,7 @@ for svc, status in services.items():
     fi
 else
     print_error "Backend API 無回應"
-    docker-compose logs backend | tail -20
+    docker compose logs backend | tail -20
     exit 1
 fi
 
@@ -304,8 +304,8 @@ echo "📊 API 文件："
 echo "  http://localhost:5050/docs"
 echo ""
 echo "📝 查看即時日誌："
-echo "  Backend:   docker-compose logs -f backend"
-echo "  Presenton: docker-compose logs -f presenton"
+echo "  Backend:   docker compose logs -f backend"
+echo "  Presenton: docker compose logs -f presenton"
 echo "  Frontend:  tail -f /tmp/frontend.log"
 echo "  Ollama:    tail -f /tmp/ollama.log"
 echo ""
@@ -313,8 +313,8 @@ echo "🛑 停止系統："
 echo "  ./scripts/stop_system.sh"
 echo ""
 echo "🐛 除錯指令："
-echo "  docker-compose ps              # 查看容器狀態"
-echo "  docker-compose logs backend    # 查看 Backend 日誌"
+echo "  docker compose ps              # 查看容器狀態"
+echo "  docker compose logs backend    # 查看 Backend 日誌"
 echo "  curl http://localhost:5050/api/health  # 測試 Backend"
 echo ""
 echo "🎉 準備就緒！開始使用 TeacherAssist 吧！"
