@@ -26,6 +26,42 @@ echo "🚀 TeacherAssist 系統啟動（Docker 模式）"
 echo "========================================"
 echo ""
 
+# ===== Step 0: 架構檢測與環境配置 =====
+echo "Step 0: 架構檢測"
+echo "---------------"
+
+# 檢測系統架構
+ARCH=$(uname -m)
+case "$ARCH" in
+    x86_64|amd64)
+        export DOCKER_PLATFORM="linux/amd64"
+        export PRESENTON_IMAGE="ghcr.io/presenton/presenton:latest"
+        print_success "架構: AMD64 (x86_64)"
+        print_info "將使用官方 Presenton 鏡像"
+        ;;
+    arm64|aarch64)
+        export DOCKER_PLATFORM="linux/arm64"
+        # 檢查本地是否有 ARM64 鏡像
+        if docker images | grep -q "presenton.*arm64-local"; then
+            export PRESENTON_IMAGE="presenton:arm64-local"
+            print_success "架構: ARM64 (aarch64)"
+            print_info "將使用本地構建的 ARM64 鏡像: presenton:arm64-local"
+        else
+            export PRESENTON_IMAGE="ghcr.io/presenton/presenton:latest"
+            print_success "架構: ARM64 (aarch64)"
+            print_warning "本地無 ARM64 鏡像，將嘗試使用官方鏡像（可能需要構建）"
+            print_info "建議執行: docker buildx build --platform linux/arm64 -t presenton:arm64-local ."
+        fi
+        ;;
+    *)
+        print_error "不支援的架構: $ARCH"
+        print_info "支援的架構: x86_64 (AMD64), arm64 (ARM64)"
+        exit 1
+        ;;
+esac
+
+echo ""
+
 # ===== Step 1: 前置需求檢查 =====
 echo "Step 1: 檢查前置需求"
 echo "-------------------"

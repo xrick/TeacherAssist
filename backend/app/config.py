@@ -4,12 +4,12 @@ from functools import lru_cache
 
 class Settings(BaseSettings):
     # Presenton Configuration
-    presenton_api_url: str = "http://localhost:8000"
+    presenton_api_url: str = "http://presenton:8000"
     presenton_api_key: str
     
     # Ollama Configuration
     ollama_url: str = "http://localhost:11434"
-    ollama_model: str = "gpt-oss:20b"
+    ollama_model: str = "phi4-mini-reasoning:3.8b"
     
     # Pexels Configuration
     pexels_api_key: str

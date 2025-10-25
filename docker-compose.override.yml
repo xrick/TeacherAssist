@@ -1,7 +1,8 @@
-version: '3.8'
-
 services:
   presenton:
-    image: presenton:arm64-local
-    platform: linux/arm64
-
+    image: ${PRESENTON_IMAGE:-ghcr.io/presenton/presenton:latest}
+    platform: ${DOCKER_PLATFORM:-linux/amd64}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./app_data/chroma:/app/servers/fastapi/chroma

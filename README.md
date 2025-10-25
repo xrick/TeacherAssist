@@ -122,18 +122,19 @@ python3 -m http.server 8080
 ## 📚 API Documentation
 
 Once the backend is running, visit:
+
 - Swagger UI: http://localhost:5000/docs
 - ReDoc: http://localhost:5000/redoc
 
 ### Main Endpoints
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/generate` | Start presentation generation |
-| GET | `/api/progress/{task_id}` | Check generation progress |
-| GET | `/api/download/{id}/pptx` | Download PowerPoint file |
-| GET | `/api/download/{id}/pdf` | Download PDF file |
-| GET | `/api/health` | Health check |
+| Method | Endpoint                    | Description                   |
+| ------ | --------------------------- | ----------------------------- |
+| POST   | `/api/generate`           | Start presentation generation |
+| GET    | `/api/progress/{task_id}` | Check generation progress     |
+| GET    | `/api/download/{id}/pptx` | Download PowerPoint file      |
+| GET    | `/api/download/{id}/pdf`  | Download PDF file             |
+| GET    | `/api/health`             | Health check                  |
 
 ## 🔧 Configuration
 
@@ -159,33 +160,35 @@ CORS_ORIGINS=*
 ## 🎨 Template Types
 
 1. **Administrative** (行政簡報)
+
    - Professional, formal, structured style
    - Best for business reports, meetings
-
 2. **Educational** (教學簡報)
+
    - Clear, teaching-oriented, easy to understand
    - Best for courses, tutorials, training
-
 3. **General** (一般簡報)
+
    - Flexible, universal, visual style
    - Best for general presentations
 
 ## 📖 Usage Guide
 
 1. **Input Content**:
+
    - Minimum 50 characters required
    - Supports: meeting notes, course outlines, product intros, research, proposals
-
 2. **Select Template**:
+
    - Choose from 3 available templates
    - Each optimized for different use cases
-
 3. **Generate**:
+
    - Click "生成簡報" (Generate)
    - Wait 30-60 seconds for processing
    - Watch real-time progress updates
-
 4. **Download**:
+
    - Download as PowerPoint (.pptx)
    - Download as PDF (.pdf)
    - Generate and download presentation transcript (.txt)
@@ -195,16 +198,18 @@ CORS_ORIGINS=*
 The system uses **Zephyr 7B** model to generate professional presentation scripts:
 
 ### Features
-- **Three Speaking Styles**: 
+
+- **Three Speaking Styles**:
+
   - Educational (教學式) - Clear, step-by-step explanations
   - Formal (正式) - Professional business language
   - Conversational (對話式) - Easy, relatable style
-
 - **Smart Duration Estimation**: Calculates speaking time based on content
 - **Slide-by-Slide Scripts**: Individual scripts for each slide
 - **Full Transcript**: Complete presentation script with timing
 
 ### Usage
+
 1. Generate a presentation first
 2. Click "生成演講稿" (Generate Transcript)
 3. Select speaking style
@@ -212,6 +217,7 @@ The system uses **Zephyr 7B** model to generate professional presentation script
 5. Download as text file
 
 ### Example Transcript Output
+
 ```
 【投影片 1: 人工智慧教育應用】
 [預估時間: 45秒]
@@ -225,6 +231,7 @@ The system uses **Zephyr 7B** model to generate professional presentation script
 ## 🔍 Troubleshooting
 
 ### Ollama Connection Issues
+
 ```bash
 # Check if Ollama is running
 curl http://localhost:11434/api/tags
@@ -241,6 +248,7 @@ ollama serve
 ```
 
 ### Presenton API Issues
+
 ```bash
 # Check Presenton container logs
 docker logs presenton-api
@@ -250,6 +258,7 @@ docker-compose restart presenton
 ```
 
 ### Backend Issues
+
 ```bash
 # Check backend logs
 docker-compose logs backend
@@ -330,23 +339,24 @@ teaching-ppt-generator/
 ### Production Considerations
 
 1. **Environment Variables**
+
    ```bash
    # Use production URLs
    PRESENTON_API_URL=https://your-presenton-domain.com
    CORS_ORIGINS=https://your-frontend-domain.com
    DEBUG=False
    ```
-
 2. **Reverse Proxy**
+
    - Use nginx or Caddy in front of the backend
    - Enable HTTPS with Let's Encrypt
-
 3. **Monitoring**
+
    - Add logging service (e.g., ELK stack)
    - Monitor Ollama performance
    - Track API usage and costs
-
 4. **Scaling**
+
    - Use Redis for task queue
    - Add load balancer for multiple backend instances
    - Consider Kubernetes for orchestration
@@ -380,6 +390,7 @@ This project is licensed under the MIT License.
 ## 📞 Support
 
 For issues and questions:
+
 1. Check the Troubleshooting section
 2. Review API documentation at `/docs`
 3. Check Docker logs: `docker-compose logs`
@@ -388,6 +399,7 @@ For issues and questions:
 ## 🔄 Updates
 
 ### Version 1.0.0 (2025-01-XX)
+
 - Initial release
 - Support for 3 template types
 - Ollama integration (qwen-oss:20)
