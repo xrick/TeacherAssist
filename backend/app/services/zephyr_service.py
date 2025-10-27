@@ -9,7 +9,8 @@ class ZephyrService:
     def __init__(self):
         self.settings = get_settings()
         self.base_url = self.settings.ollama_url
-        self.model = "phi4-mini-reasoning:3.8b"
+        # self.model = "phi4-mini-reasoning:3.8b"
+        self.model = "phi4-mini:3.8b"
         
     async def generate_transcript(
         self,

@@ -167,15 +167,15 @@ fi
 print_info "檢查 Ollama 模型..."
 
 # 檢查 gpt-oss:20b（內容分析）
-if ollama list | grep -q "gpt-oss:20b"; then
-    print_success "gpt-oss:20b 模型可用（內容分析）"
+if ollama list | grep -q "phi4-mini:3.8b"; then
+    print_success "phi4-mini:3.8b 模型可用（內容分析）"
 else
-    print_warning "gpt-oss:20b 模型未安裝（必要）"
+    print_warning "phi4-mini:3.8b 模型未安裝（必要）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 gpt-oss:20b 模型（約 13 GB）..."
-        ollama pull gpt-oss:20b
+        print_info "下載 phi4-mini:3.8b 模型（約 13 GB）..."
+        ollama pull phi4-mini:3.8b
         print_success "gpt-oss:20b 下載完成"
     else
         print_error "缺少必要模型，無法繼續"
@@ -238,17 +238,29 @@ echo "------------------"
 
 # 檢查 Presenton
 print_info "檢查 Presenton 服務..."
-for i in {1..60}; do
-    if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
+
+# 策略 1: 檢查容器狀態（跨平台相容）
+if ! docker ps --filter "name=presenton-api" --filter "status=running" | grep -q "presenton-api"; then
+    print_error "Presenton 容器未運行"
+    docker compose logs presenton | tail -30
+    exit 1
+fi
+print_success "Presenton 容器運行中"
+
+# 策略 2: 從容器內部檢查服務健康（跨平台相容）
+print_info "檢查 Presenton 內部服務..."
+for i in {1..30}; do
+    # 檢查容器內部的 /docs 端點
+    if docker exec presenton-api curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
         break
     fi
     sleep 1
 done
 
-if curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
-    print_success "Presenton API 運行正常 (http://localhost:8000)"
+if docker exec presenton-api curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
+    print_success "Presenton API 服務正常 (內部檢測)"
 else
-    print_error "Presenton API 無回應"
+    print_error "Presenton API 內部服務異常"
     docker compose logs presenton | tail -30
     exit 1
 fi
