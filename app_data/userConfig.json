@@ -1,1 +1,1 @@
-{}
+{"LLM":"ollama","OLLAMA_URL":"http://host.docker.internal:11434","OLLAMA_MODEL":"phi4-mini-reasoning:3.8b","PEXELS_API_KEY":"kKOp88XcQabMQH1lCUMSMjqNRByDrHuFNe3ED4FzkQ4rsg2Yv9peyRA6","IMAGE_PROVIDER":"pexels"}

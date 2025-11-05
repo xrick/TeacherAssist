@@ -131,8 +131,10 @@ check_port_free() {
     fi
 }
 
-check_port_free 5050 "Backend"
-check_port_free 8000 "Presenton"
+# 檢查兩個可能的 Backend 端口（家裡 5151 / 辦公室 5050）
+check_port_free 5151 "Backend (Home)" 2>/dev/null || true
+check_port_free 5050 "Backend (Office)" 2>/dev/null || true
+check_port_free 8001 "Presenton"
 check_port_free 8080 "Frontend"
 
 echo ""

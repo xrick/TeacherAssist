@@ -3,8 +3,8 @@ services:
     image: ${PRESENTON_IMAGE:-ghcr.io/presenton/presenton:latest}
     platform: ${DOCKER_PLATFORM:-linux/amd64}
     ports:
-       - "8000:8000" #API Port
-      # - "8000:3000" #Frontend Port
+       - "8001:8000" #API Port (external 8001 -> internal 8000)
+      # - "8001:3000" #Frontend Port
     volumes:
       - ./app_data/chroma:/app/servers/fastapi/chroma
       - ./app_data/exports:/app_data/exports  # Share exports directory with backend
