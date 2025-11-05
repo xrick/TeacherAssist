@@ -10,6 +10,7 @@ notebook
 # .env
 # .env.local
 # .env.*.local
+.env.platform
 
 # Python
 __pycache__/

@@ -1,0 +1,53 @@
+Role : You are a professional and proficient RAG web application developer
+task:
+I encounter an error occured at the presenton page generation, the error is as following:
+```
+frontend messages:
+Uncaught (in promise) Error: 生成失敗: Server error '500 Internal Server Error' for url 'http://presenton:8000/api/v1/ppt/presentation/generate'
+For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+    at poll ((索引):770:35)
+backend:
+Traceback (most recent call last):
+ppt-backend  |   File "/app/app/services/content_processor.py", line 36, in process_content
+ppt-backend  |     presentation_result = await self.presenton.create_presentation(
+ppt-backend  |                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+ppt-backend  |   File "/app/app/services/presenton_service.py", line 50, in create_presentation
+ppt-backend  |     response.raise_for_status()
+ppt-backend  |   File "/usr/local/lib/python3.11/site-packages/httpx/_models.py", line 758, in raise_for_status
+ppt-backend  |     raise HTTPStatusError(message, request=request, response=self)
+ppt-backend  | httpx.HTTPStatusError: Server error '500 Internal Server Error' for url 'http://presenton:8000/api/v1/ppt/presentation/generate'
+ppt-backend  | For more information check: https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500
+presenton message:
+Generated 6 outlines for the presentation
+presenton-api  | INFO:     127.0.0.1:51010 - "GET /api/v1/ppt/template-management/summary HTTP/1.0" 200 OK
+presenton-api  | 2025-11-05 12:44:42,310 - INFO - HTTP Request: POST http://host.docker.internal:11434/v1/chat/completions "HTTP/1.1 200 OK"
+presenton-api  | Traceback (most recent call last):
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 680, in generate_presentation_handler
+presenton-api  |     slide_layouts = [layout_model.slides[idx] for idx in slide_layout_indices]
+presenton-api  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 680, in <listcomp>
+presenton-api  |     slide_layouts = [layout_model.slides[idx] for idx in slide_layout_indices]
+presenton-api  |                      ~~~~~~~~~~~~~~~~~~~^^^^^
+presenton-api  | IndexError: list index out of range
+presenton-api  | Traceback (most recent call last):
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 680, in generate_presentation_handler
+presenton-api  |     slide_layouts = [layout_model.slides[idx] for idx in slide_layout_indices]
+presenton-api  |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 680, in <listcomp>
+presenton-api  |     slide_layouts = [layout_model.slides[idx] for idx in slide_layout_indices]
+presenton-api  |                      ~~~~~~~~~~~~~~~~~~~^^^^^
+presenton-api  | IndexError: list index out of range
+presenton-api  | 
+presenton-api  | During handling of the above exception, another exception occurred:
+presenton-api  | 
+presenton-api  | Traceback (most recent call last):
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 811, in generate_presentation_sync
+presenton-api  |     return await generate_presentation_handler(
+presenton-api  |            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+presenton-api  |   File "/app/servers/fastapi/api/v1/ppt/endpoints/presentation.py", line 801, in generate_presentation_handler
+presenton-api  |     raise e
+presenton-api  | fastapi.exceptions.HTTPException: 500: Presentation generation failed
+presenton-api  | Running task: <Task pending name='Task-21' coro=<ConcurrentService.run_task.<locals>.wrapper() running at /app/servers/fastapi/services/concurrent_service.py:17>> - executing send_webhook
+presenton-api  | INFO:     192.168.97.3:38468 - "POST /api/v1/ppt/presentation/generate HTTP/1.1" 500 Internal Server Error
+find the problem and fix it like a professional and proficient RAG web application developer
+```

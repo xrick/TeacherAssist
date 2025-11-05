@@ -554,6 +554,23 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 </div>
             </div>
 
+            <div class="input-group">
+                <label for="slide-count" class="input-label">投影片數量</label>
+                <select id="slide-count" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; background: var(--background); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;">
+                    <option value="3">3 張投影片</option>
+                    <option value="4">4 張投影片</option>
+                    <option value="5">5 張投影片</option>
+                    <option value="6" selected>6 張投影片（推薦）</option>
+                    <option value="7">7 張投影片</option>
+                    <option value="8">8 張投影片</option>
+                    <option value="10">10 張投影片</option>
+                    <option value="12">12 張投影片</option>
+                </select>
+                <div class="input-meta" style="margin-top: 0.5rem;">
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">⚠️ 超過模板支援的數量將自動調整</span>
+                </div>
+            </div>
+
             <div class="action-buttons">
                 <button id="generate-btn" class="btn btn-primary" disabled>
                     <span>✨ 生成簡報</span>
@@ -714,6 +731,10 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.generateBtn.disabled = true;
 
                 try {
+                    // Get user-selected slide count
+                    const slideCountSelect = document.getElementById('slide-count');
+                    const nSlides = parseInt(slideCountSelect.value);
+
                     const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
                         method: 'POST',
                         headers: {
@@ -722,7 +743,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                         body: JSON.stringify({
                             content: content,
                             template: this.selectedTemplate,
-                            language: 'zh-TW'
+                            language: 'zh-TW',
+                            n_slides: nSlides  // User-specified slide count
                         })
                     });
 

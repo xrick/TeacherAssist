@@ -1,0 +1,68 @@
+✅ Complete Solution Implemented
+You were absolutely correct! I've now implemented the proper fix that respects user choice while preventing the IndexError.
+What Changed
+1. Backend Model (models.py:14)
+Added user-configurable n_slides parameter:
+n_slides: int = Field(default=6, ge=3, le=12, description="Number of slides to generate (3-12)")
+2. API Route (routes.py:34)
+Passes user's slide count to processor:
+background_tasks.add_task(
+    content_processor.process_content,
+    request.content,
+    request.template.value,
+    task_id,
+    request.n_slides  # ← User-specified
+)
+3. Content Processor (content_processor.py:20)
+Accepts and forwards user's choice:
+async def process_content(
+    self,
+    content: str,
+    template: str,
+    task_id: str,
+    n_slides: int = 6  # ← User-specified, default 6
+)
+4. Presenton Service (presenton_service.py:48-73)
+Validates against template and auto-adjusts:
+# Query template constraints
+template_info = await self.get_template_info(template_id)
+max_slides = template_info.get("max_slides", 5)
+
+# Enforce template constraints
+if n_slides > max_slides:
+    print(f"Warning: Requested {n_slides} slides exceeds template max ({max_slides}). Adjusting to {max_slides}.")
+    n_slides = max_slides
+5. Frontend UI (index.html:557-572)
+Added slide count selector:
+<select id="slide-count">
+    <option value="3">3 張投影片</option>
+    <option value="4">4 張投影片</option>
+    <option value="5">5 張投影片</option>
+    <option value="6" selected>6 張投影片（推薦）</option>
+    ...
+</select>
+<span>⚠️ 超過模板支援的數量將自動調整</span>
+6. Frontend JavaScript (index.html:734-747)
+Sends user's choice to API:
+const nSlides = parseInt(slideCountSelect.value);
+body: JSON.stringify({
+    content: content,
+    template: this.selectedTemplate,
+    language: 'zh-TW',
+    n_slides: nSlides  // ← User choice
+})
+How It Works Now
+User selects slide count (3-12 slides) in frontend
+Frontend sends n_slides to backend API
+Backend queries template to get max_slides supported
+Auto-adjustment: If user requests 8 slides but template supports only 5 → adjusts to 5 with warning
+Presenton generates presentation with validated slide count
+No IndexError - always within template constraints
+Benefits
+✅ User control: Users can choose 3-12 slides
+✅ Prevents errors: Template validation prevents IndexError
+✅ Graceful fallback: Auto-adjusts with warning if exceeded
+✅ Transparent: UI warns users about potential adjustments
+✅ Professional: Respects original design intent
+Testing
+Ready to test with frontend UI - users can now select different slide counts and the system will validate against template constraints automatically!

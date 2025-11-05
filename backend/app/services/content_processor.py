@@ -16,9 +16,17 @@ class ContentProcessor:
         self,
         content: str,
         template: str,
-        task_id: str
+        task_id: str,
+        n_slides: int = 6
     ) -> Dict[str, Any]:
-        """Process content and generate presentation"""
+        """Process content and generate presentation
+
+        Args:
+            content: Input text content
+            template: Template style
+            task_id: Unique task identifier
+            n_slides: Number of slides to generate (user-specified, default 6)
+        """
 
         try:
             # Step 1: Prepare content (20%)
@@ -32,10 +40,10 @@ class ContentProcessor:
             self._update_progress(task_id, 60, "正在生成簡報...")
 
             # Presenton handles everything: content analysis, layout, images, generation
-            # Note: template parameter removed - using Presenton's default styling
+            # Note: n_slides is user-specified, validated against template constraints in presenton_service
             presentation_result = await self.presenton.create_presentation(
                 content=content,
-                n_slides=6  # Generate 6 slides by default
+                n_slides=n_slides  # User-specified slide count (validated against template)
             )
 
             # Step 4: Finalize (100%)

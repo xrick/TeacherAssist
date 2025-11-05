@@ -27,38 +27,95 @@ echo "========================================"
 echo ""
 
 # ===== Step 0: 架構檢測與環境配置 =====
-echo "Step 0: 架構檢測"
-echo "---------------"
+echo "Step 0: 架構檢測與映像檔配置"
+echo "-----------------------------"
 
 # 檢測系統架構
 ARCH=$(uname -m)
+print_info "系統架構: $ARCH"
+
+# 檢測 Docker 支援的平台
+if command -v docker >/dev/null 2>&1; then
+    DOCKER_ARCH=$(docker version -f '{{.Server.Arch}}' 2>/dev/null || echo "unknown")
+    print_info "Docker 架構: $DOCKER_ARCH"
+fi
+
+# 平台配置邏輯
 case "$ARCH" in
     x86_64|amd64)
         export DOCKER_PLATFORM="linux/amd64"
-        export PRESENTON_IMAGE="ghcr.io/presenton/presenton:latest"
         print_success "架構: AMD64 (x86_64)"
-        print_info "將使用官方 Presenton 鏡像"
+
+        # Backend 映像檔選擇
+        if docker images | grep -q "teacherassist-backend.*latest"; then
+            export BACKEND_IMAGE="teacherassist-backend:latest"
+            print_info "Backend: 使用本地映像檔 teacherassist-backend:latest"
+        else
+            export BACKEND_IMAGE="teacherassist-backend:latest"
+            print_warning "Backend: 本地映像檔不存在，將從 Dockerfile 建置"
+        fi
+
+        # Presenton 映像檔選擇
+        export PRESENTON_IMAGE="ghcr.io/presenton/presenton:latest"
+        print_info "Presenton: 使用官方 AMD64 映像檔"
         ;;
+
     arm64|aarch64)
         export DOCKER_PLATFORM="linux/arm64"
-        # 檢查本地是否有 ARM64 鏡像
+        print_success "架構: ARM64 (Apple Silicon / aarch64)"
+
+        # Backend 映像檔選擇（優先使用本地建置的 ARM64 版本）
+        if docker images | grep -q "teacherassist-backend.*latest"; then
+            # 檢查映像檔是否為 ARM64
+            IMAGE_ID=$(docker images teacherassist-backend:latest -q | head -1)
+            if [ -n "$IMAGE_ID" ]; then
+                IMAGE_ARCH=$(docker image inspect "$IMAGE_ID" --format '{{.Architecture}}' 2>/dev/null || echo "unknown")
+                if [ "$IMAGE_ARCH" = "arm64" ] || [ "$IMAGE_ARCH" = "aarch64" ]; then
+                    export BACKEND_IMAGE="teacherassist-backend:latest"
+                    print_success "Backend: 使用本地 ARM64 映像檔 (ID: ${IMAGE_ID:0:12})"
+                else
+                    export BACKEND_IMAGE="teacherassist-backend:latest"
+                    print_warning "Backend: 本地映像檔架構為 $IMAGE_ARCH，將重新建置為 ARM64"
+                fi
+            fi
+        else
+            export BACKEND_IMAGE="teacherassist-backend:latest"
+            print_warning "Backend: 本地映像檔不存在，將從 Dockerfile 建置 ARM64 版本"
+        fi
+
+        # Presenton 映像檔選擇（ARM64 需要特殊處理）
         if docker images | grep -q "presenton.*arm64-local"; then
             export PRESENTON_IMAGE="presenton:arm64-local"
-            print_success "架構: ARM64 (aarch64)"
-            print_info "將使用本地構建的 ARM64 鏡像: presenton:arm64-local"
+            print_success "Presenton: 使用本地 ARM64 映像檔 presenton:arm64-local"
         else
             export PRESENTON_IMAGE="ghcr.io/presenton/presenton:latest"
-            print_success "架構: ARM64 (aarch64)"
-            print_warning "本地無 ARM64 鏡像，將嘗試使用官方鏡像（可能需要構建）"
-            print_info "建議執行: docker buildx build --platform linux/arm64 -t presenton:arm64-local ."
+            print_warning "Presenton: 本地無 ARM64 映像檔"
+            print_info "將嘗試使用官方映像檔（Docker 會自動處理平台轉換）"
+            print_info "如需原生 ARM64 版本，請執行:"
+            print_info "  docker buildx build --platform linux/arm64 -t presenton:arm64-local <presenton_source>"
         fi
         ;;
+
     *)
         print_error "不支援的架構: $ARCH"
-        print_info "支援的架構: x86_64 (AMD64), arm64 (ARM64)"
+        print_info "支援的架構: x86_64 (AMD64), arm64 (ARM64/Apple Silicon)"
         exit 1
         ;;
 esac
+
+# 載入平台特定配置（如果存在，可覆寫自動檢測結果）
+if [ -f ".env.platform" ]; then
+    print_info "載入 .env.platform 覆寫配置..."
+    source .env.platform
+    print_warning "使用 .env.platform 中的自訂設定"
+fi
+
+# 顯示最終配置
+echo ""
+print_info "📦 映像檔配置摘要:"
+echo "  • 平台: $DOCKER_PLATFORM"
+echo "  • Backend: $BACKEND_IMAGE"
+echo "  • Presenton: $PRESENTON_IMAGE"
 
 echo ""
 
@@ -130,7 +187,7 @@ check_port() {
     fi
 }
 
-check_port 5050 "Backend"
+check_port 5151 "Backend" # 5050 is the default port for the Backend
 check_port 8000 "Presenton"
 check_port 8080 "Frontend"
 
@@ -247,22 +304,64 @@ if ! docker ps --filter "name=presenton-api" --filter "status=running" | grep -q
 fi
 print_success "Presenton 容器運行中"
 
-# 策略 2: 從容器內部檢查服務健康（跨平台相容）
-print_info "檢查 Presenton 內部服務..."
-for i in {1..30}; do
-    # 檢查容器內部的 /docs 端點
-    if docker exec presenton-api curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
+# 策略 2: 等待 Presenton 完整初始化（包含模型下載）
+print_info "檢查 Presenton 內部服務（包含模型初始化，可能需要 1-2 分鐘）..."
+
+# Presenton 啟動階段：
+# 1. Nginx (5秒)
+# 2. Ollama (10秒)
+# 3. Next.js (10秒)
+# 4. ONNX模型下載 (30-60秒，首次啟動)
+# 5. ChromaDB初始化 (10秒)
+
+MAX_WAIT=120  # 最多等待 2 分鐘
+ELAPSED=0
+LAST_LOG_LINE=""
+
+while [ $ELAPSED -lt $MAX_WAIT ]; do
+    # 檢查 API 端點是否可用
+    HTTP_CODE=$(docker exec presenton-api curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null || echo "000")
+
+    if [ "$HTTP_CODE" = "200" ]; then
+        print_success "Presenton API 服務正常 (耗時: ${ELAPSED}秒)"
         break
     fi
-    sleep 1
+
+    # 顯示初始化進度（每 10 秒更新一次）
+    if [ $((ELAPSED % 10)) -eq 0 ] && [ $ELAPSED -gt 0 ]; then
+        # 取得最新日誌，檢查初始化狀態
+        RECENT_LOG=$(docker logs presenton-api 2>&1 | tail -3 | head -1)
+        if [ "$RECENT_LOG" != "$LAST_LOG_LINE" ]; then
+            if echo "$RECENT_LOG" | grep -q "Downloading\|Initializing\|Starting"; then
+                print_info "  ⏳ $RECENT_LOG"
+            fi
+            LAST_LOG_LINE="$RECENT_LOG"
+        fi
+    fi
+
+    sleep 2
+    ELAPSED=$((ELAPSED + 2))
 done
 
+# 最終驗證
 if docker exec presenton-api curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/docs 2>/dev/null | grep -q "200"; then
-    print_success "Presenton API 服務正常 (內部檢測)"
+    print_success "Presenton API 完全就緒"
 else
-    print_error "Presenton API 內部服務異常"
-    docker compose logs presenton | tail -30
-    exit 1
+    print_error "Presenton API 初始化超時或失敗"
+    print_warning "這可能是因為："
+    print_info "  1. 首次啟動需要下載 ONNX 模型（~80MB）"
+    print_info "  2. 網路連線較慢"
+    print_info "  3. 系統資源不足"
+    echo ""
+    print_info "最近的日誌："
+    docker compose logs presenton | tail -20
+    echo ""
+    read -p "是否繼續啟動其他服務？(y/N): " -n 1 -r
+    echo ""
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
+    print_warning "跳過 Presenton 驗證，繼續啟動..."
 fi
 
 # 檢查 Backend

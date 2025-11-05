@@ -11,6 +11,7 @@ class GenerateRequest(BaseModel):
     content: str = Field(..., min_length=50, description="Input content for presentation")
     template: TemplateType = Field(default=TemplateType.ADMINISTRATIVE, description="Presentation template style")
     language: str = Field(default="zh-TW", description="Content language")
+    n_slides: int = Field(default=6, ge=3, le=12, description="Number of slides to generate (3-12)")
 
 class SlideContent(BaseModel):
     title: str

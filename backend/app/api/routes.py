@@ -30,7 +30,8 @@ async def generate_presentation(
         content_processor.process_content,
         request.content,
         request.template.value,
-        task_id
+        task_id,
+        request.n_slides
     )
     
     return GenerateResponse(
