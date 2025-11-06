@@ -62,6 +62,6 @@ class SlideTranscript(BaseModel):
 class TranscriptResponse(BaseModel):
     presentation_id: str
     total_slides: int
-    total_duration_minutes: int
+    total_duration_minutes: float  # Changed from int to float to support fractional minutes (e.g., 2.5 mins)
     transcripts: List[SlideTranscript]
     full_transcript: str

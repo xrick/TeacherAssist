@@ -115,18 +115,22 @@ class PresentonService:
         safe_title = self._generate_safe_title(content)
         print(f"Generated safe title: {safe_title} (length: {len(safe_title)} chars)")
 
+        # Prepend safe filename to content
+        # Presenton API extracts filename from first line of content
+        # Format: "file name：{title}\n---\n{original_content}"
+        modified_content = f"file name：{safe_title}\n---\n{content}"
+        print(f"Prepended filename to content (total length: {len(modified_content)} chars)")
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
         }
 
         # Build Presenton /generate API payload
-        # Note: template field is removed - Presenton requires custom templates to be uploaded first
-        # The API works without template field and uses default styling
-        # Added 'title' field to control filename generation (if supported by Presenton API)
+        # Note: Presenton extracts filename from first line of content
+        # We prepend "file name：{safe_title}" to control the output filename
         payload = {
-            "content": content,
-            "title": safe_title,  # Short, safe title for filename
+            "content": modified_content,  # Content with safe filename prepended
             "n_slides": n_slides,
             "language": "zh-TW",
             "tone": "default",

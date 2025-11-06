@@ -629,7 +629,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                     <div class="transcript-content" id="transcript-content">
                         <div class="transcript-loading">正在生成演講稿...</div>
                     </div>
-                    <button class="export-btn primary" id="download-transcript" style="margin-top: 1rem;">
+                    <button class="export-btn primary" id="download-transcript" style="margin-top: 1rem;" disabled>
                         💾 下載演講稿
                     </button>
                 </div>
@@ -659,23 +659,24 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.charCount = document.getElementById('char-count');
                 this.generateBtn = document.getElementById('generate-btn');
                 this.clearBtn = document.getElementById('clear-btn');
-                
+
                 this.previewEmpty = document.getElementById('preview-empty');
                 this.progressSection = document.getElementById('progress-section');
                 this.resultsSection = document.getElementById('results-section');
-                
+
                 this.progressText = document.getElementById('progress-text');
                 this.progressFill = document.getElementById('progress-fill');
                 this.progressPercentage = document.getElementById('progress-percentage');
-                
+
                 this.slidesGrid = document.getElementById('slides-grid');
                 this.resultsMeta = document.getElementById('results-meta');
-                
+
                 this.templateCards = document.querySelectorAll('.template-card');
-                
+
                 this.transcriptSection = document.getElementById('transcript-section');
                 this.transcriptContent = document.getElementById('transcript-content');
                 this.transcriptStyle = document.getElementById('transcript-style');
+                this.downloadTranscriptBtn = document.getElementById('download-transcript');
             }
 
             bindEvents() {
@@ -868,6 +869,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                 this.transcriptSection.style.display = 'block';
                 this.transcriptContent.innerHTML = '<div class="transcript-loading">正在生成演講稿，請稍候...</div>';
+                this.downloadTranscriptBtn.disabled = true;  // Disable download button during generation
 
                 try {
                     const style = this.transcriptStyle.value;
@@ -913,7 +915,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                 let html = `
                     <div style="padding: 1rem; background: var(--background); border-radius: var(--radius-sm); margin-bottom: 1rem;">
-                        <strong>預估演講時間:</strong> ${totalMinutes} 分鐘 | 
+                        <strong>預估演講時間:</strong> ${totalMinutes} 分鐘 |
                         <strong>投影片數量:</strong> ${data.total_slides}
                     </div>
                 `;
@@ -921,8 +923,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 transcripts.forEach(slide => {
                     const minutes = Math.floor(slide.duration_seconds / 60);
                     const seconds = slide.duration_seconds % 60;
-                    const timeStr = minutes > 0 ? 
-                        `${minutes}分${seconds}秒` : 
+                    const timeStr = minutes > 0 ?
+                        `${minutes}分${seconds}秒` :
                         `${seconds}秒`;
 
                     html += `
@@ -941,6 +943,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 });
 
                 this.transcriptContent.innerHTML = html;
+                this.downloadTranscriptBtn.disabled = false;  // Enable download button after successful rendering
             }
 
             downloadTranscript() {

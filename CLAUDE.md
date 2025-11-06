@@ -527,18 +527,41 @@ cat .env | grep OLLAMA_MODEL
 
 **Symptom**: `OSError: [Errno 36] File name too long` during presentation generation
 
-**Cause**: Presenton API uses content text as filename, exceeding filesystem limits (255 bytes)
+**Cause**: Presenton API extracts filename from first line of content, causing excessively long filenames that exceed filesystem limits (255 bytes)
 
-**Impact**: Images download successfully, but PPTX file save fails
+**Impact**: Images download successfully, but PPTX file save fails at the final step
 
-**Solution**: Fixed in backend v1.1.0+ with automatic title truncation
+**Solution**: Fixed in backend v1.1.0+ by automatically prepending a safe filename to content
+
+**How it works**:
+
+1. Backend extracts a safe title from user content (first meaningful line)
+2. Removes common prefixes (題名：, 標題：, 主題：) and special characters
+3. Truncates to 40 characters max (~120 bytes, well under 255 byte limit)
+4. Prepends to content: `file name：{safe_title}\n---\n{original_content}`
+5. Presenton API extracts this short filename from the first line
 
 ```bash
-# Verify fix is applied
+# Verify fix is applied (should see safe filename in logs)
 docker compose logs backend | grep "Generated safe title"
+docker compose logs backend | grep "Prepended filename"
 
 # If not present, rebuild backend
 docker compose up -d --build backend
+```
+
+**Example transformation**:
+
+```text
+Original content (143 chars):
+題名：半導體在國家安全中的重要性  現狀概述： 自從美中霸權...
+
+Modified content sent to Presenton:
+file name：半導體在國家安全中的重要性
+---
+題名：半導體在國家安全中的重要性  現狀概述： 自從美中霸權...
+
+Result: Saved as "半導體在國家安全中的重要性.pptx" (16 chars, ~48 bytes) ✅
 ```
 
 **Technical Details**:
@@ -547,7 +570,55 @@ docker compose up -d --build backend
 - Chinese UTF-8 characters: 3 bytes each
 - Safe limit: 40 characters (~120 bytes)
 - Auto-generated titles remove special characters and truncate length
-- Fallback to hash-based naming if title extraction fails
+- Fallback to hash-based naming if title extraction fails (e.g., `簡報_a1b2c3d4`)
+
+### Transcript Download Shows HTML Error Page
+
+**Symptom**: Clicking "下載演講稿" button opens a new tab showing HTML error page (404 Not Found) instead of downloading the transcript file
+
+**Cause**: Download button was enabled immediately when transcript generation started, allowing users to click download before transcript data was saved to backend cache
+
+**Impact**: Users see 404 HTML error page because `/api/transcript/{id}/download` endpoint can't find transcript in `transcripts_cache`
+
+**Solution**: Fixed in frontend v1.1.0+ by implementing proper button state management
+
+**How it works**:
+
+1. Download button starts in **disabled** state (HTML initial state)
+2. When user clicks "生成演講稿", button stays **disabled** during generation
+3. After transcript successfully generated and rendered, button becomes **enabled**
+4. If generation fails, button remains **disabled**
+
+**Code changes** ([frontend/index.html](frontend/index.html)):
+
+```javascript
+// Button HTML: disabled by default
+<button id="download-transcript" disabled>💾 下載演講稿</button>
+
+// generateTranscript(): Ensure disabled during generation
+this.downloadTranscriptBtn.disabled = true;
+
+// renderTranscript(): Enable after successful rendering
+this.downloadTranscriptBtn.disabled = false;
+```
+
+**Verification**:
+
+```bash
+# Check button state management is applied
+grep -A2 "download-transcript" frontend/index.html | grep disabled
+
+# Expected: Button should be disabled initially
+# Expected: Button enables only after transcript renders
+```
+
+**User workflow**:
+
+1. Generate presentation → Wait for completion
+2. Click "生成演講稿" → Button disabled, loading message shows
+3. Wait for transcript generation (~30-60s)
+4. Transcript appears → Download button **automatically enables**
+5. Click download → File downloads successfully ✅
 
 ## Architecture and Code Patterns
 
