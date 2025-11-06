@@ -1,5 +1,7 @@
 import httpx
 import asyncio
+import re
+import hashlib
 from typing import Dict, Any, Optional
 from app.config import get_settings
 
@@ -9,7 +11,44 @@ class PresentonService:
         self.base_url = self.settings.presenton_api_url
         self.api_key = self.settings.presenton_api_key
         self._template_cache = {}
-        
+
+    def _generate_safe_title(self, content: str, max_length: int = 40) -> str:
+        """Generate a safe, filesystem-friendly title from content
+
+        Args:
+            content: Full presentation content
+            max_length: Maximum length in characters (default: 40 for UTF-8 safety)
+
+        Returns:
+            Safe title string suitable for filenames
+
+        Note:
+            - UTF-8 Chinese characters are 3 bytes each
+            - max_length=40 ensures ~120 bytes max (well under 255 byte limit)
+            - Removes special characters and colons that may cause issues
+        """
+        # Extract first meaningful line (skip empty lines)
+        lines = content.strip().split('\n')
+        first_line = next((line.strip() for line in lines if line.strip()), "簡報")
+
+        # Remove common prefixes like "題名：", "標題：", "主題："
+        first_line = re.sub(r'^(題名|標題|主題|Title)[:：]\s*', '', first_line)
+
+        # Remove special characters that may cause filesystem issues
+        # Keep: Chinese, English, numbers, spaces, dashes
+        safe_title = re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9\s\-]', '', first_line)
+
+        # Truncate to max_length characters
+        if len(safe_title) > max_length:
+            safe_title = safe_title[:max_length].rstrip()
+
+        # Fallback to hash-based name if title is empty after cleaning
+        if not safe_title or len(safe_title) < 3:
+            content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
+            safe_title = f"簡報_{content_hash}"
+
+        return safe_title
+
     async def get_template_info(self, template_id: Optional[str] = None) -> Dict[str, Any]:
         """Query template management API to get template constraints
 
@@ -72,6 +111,10 @@ class PresentonService:
             print(f"Warning: Requested {n_slides} slides exceeds template max ({max_slides}). Adjusting to {max_slides}.")
             n_slides = max_slides
 
+        # Generate safe title to prevent filename length issues
+        safe_title = self._generate_safe_title(content)
+        print(f"Generated safe title: {safe_title} (length: {len(safe_title)} chars)")
+
         headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json"
@@ -80,8 +123,10 @@ class PresentonService:
         # Build Presenton /generate API payload
         # Note: template field is removed - Presenton requires custom templates to be uploaded first
         # The API works without template field and uses default styling
+        # Added 'title' field to control filename generation (if supported by Presenton API)
         payload = {
             "content": content,
+            "title": safe_title,  # Short, safe title for filename
             "n_slides": n_slides,
             "language": "zh-TW",
             "tone": "default",
