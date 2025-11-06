@@ -85,14 +85,16 @@ class PresentonService:
         self,
         content: str,
         n_slides: int = 6,
-        template_id: Optional[str] = None
+        template_id: Optional[str] = None,
+        theme_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create presentation using Presenton API /generate endpoint
 
         Args:
             content: Presentation content text
             n_slides: Number of slides to generate (default: 6, user-configurable)
-            template_id: Optional template ID (not yet implemented in Presenton)
+            template_id: Optional template ID (general, modern, standard, swift)
+            theme_id: Optional theme ID (edge-yellow, mint-blue, light-rose, professional-blue, professional-dark)
 
         Note: Presenton template system requires custom templates to be uploaded via
         template management API first. For now, we use default styling by omitting
@@ -140,6 +142,14 @@ class PresentonService:
             "include_title_slide": True,
             "export_as": "pptx"
         }
+
+        # Add template if provided
+        if template_id and template_id != "default":
+            payload["template"] = template_id
+
+        # Add theme if provided
+        if theme_id:
+            payload["theme"] = theme_id
 
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(

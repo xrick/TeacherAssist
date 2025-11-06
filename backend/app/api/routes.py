@@ -32,7 +32,8 @@ async def generate_presentation(
         request.content,
         request.template.value,
         task_id,
-        request.n_slides
+        request.n_slides,
+        request.theme.value if request.theme else None
     )
     
     return GenerateResponse(

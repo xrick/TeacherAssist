@@ -1,3 +1,4 @@
+<!-- prompt.md -->
 📋 STEP 1: READ REQUIREMENTS
 Claude, read the rules in u/CLAUDE.md, then use sequential thinking and proceed to the next step.
 STOP. Before reading further, confirm you understand:
@@ -27,7 +28,7 @@ RULES (violating ANY invalidates your response):
 ✅ Reference specific file paths
 ✅ Provide migration strategies
 
-[Your detailed prompt here]
+[Your Prpmpt here]
 
 FINAL REMINDER: If you suggest creating new files, explain why existing files cannot be extended. If you recommend rewrites, justify why refactoring won't work.
 🔍 STEP 2: ANALYZE CURRENT SYSTEM

@@ -1,3 +1,4 @@
+<!-- refData/design/new_design1.md -->
 /sc:brainstorm  ```
 1. 我要重新設計整個畫面，請看這張圖：refData/design/new_design.png
 2. 畫面分成三個部份。
