@@ -620,6 +620,64 @@ grep -A2 "download-transcript" frontend/index.html | grep disabled
 4. Transcript appears → Download button **automatically enables**
 5. Click download → File downloads successfully ✅
 
+### Preview Panel Cannot Scroll to Download Transcript Button
+
+**Symptom**: After transcript generation completes, the "下載演講稿" (Download Transcript) button is not visible because the preview panel lacks a scrollbar
+
+**Cause**: `.preview-panel` CSS had `overflow: hidden`, preventing users from scrolling down to see content beyond the viewport height limit (`max-height: calc(100vh - 120px)`)
+
+**Impact**: Users can see transcript content but cannot access the download button positioned below the transcript area
+
+**Solution**: Fixed in frontend v1.2.0+ by enabling vertical scrolling on preview panel
+
+**How it works**:
+
+1. Preview panel now has `overflow-y: auto` instead of `overflow: hidden`
+2. When content exceeds viewport height, a scrollbar automatically appears
+3. Users can scroll down to see all content including the download button
+4. Transcript content area increased from 400px to 600px for better UX
+
+**Code changes** ([frontend/index.html](frontend/index.html)):
+
+```css
+/* Preview Panel: Enable scrolling */
+.preview-panel {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;  /* Changed from overflow: hidden */
+}
+
+/* Transcript Content: Increased viewing area */
+.transcript-content {
+    max-height: 600px;  /* Increased from 400px */
+    overflow-y: auto;
+}
+```
+
+**Verification**:
+
+```bash
+# Check CSS changes are applied
+grep -A5 "\.preview-panel {" frontend/index.html | grep overflow
+grep -A3 "\.transcript-content {" frontend/index.html | grep max-height
+
+# Expected:
+# .preview-panel: overflow-y: auto
+# .transcript-content: max-height: 600px
+```
+
+**User workflow**:
+
+1. Generate presentation and transcript
+2. **Scroll down** in the preview panel (right side)
+3. Download button becomes visible ✅
+4. Click to download transcript file
+
+**Technical notes**:
+
+- Preview panel uses `position: sticky` with `max-height` to stay visible while scrolling
+- Nested scrolling avoided: transcript content (600px) fits within most viewports
+- Mobile responsive: scrolling works on all screen sizes
+
 ## Architecture and Code Patterns
 
 ### Service Layer Pattern
