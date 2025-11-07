@@ -17,15 +17,17 @@ class ContentProcessor:
         content: str,
         template: str,
         task_id: str,
-        n_slides: int = 6
+        n_slides: int = 6,
+        theme: str = None
     ) -> Dict[str, Any]:
         """Process content and generate presentation
 
         Args:
             content: Input text content
-            template: Template style
+            template: Template style (general, modern, standard, swift)
             task_id: Unique task identifier
             n_slides: Number of slides to generate (user-specified, default 6)
+            theme: Theme style (edge-yellow, mint-blue, light-rose, professional-blue, professional-dark)
         """
 
         try:
@@ -43,7 +45,9 @@ class ContentProcessor:
             # Note: n_slides is user-specified, validated against template constraints in presenton_service
             presentation_result = await self.presenton.create_presentation(
                 content=content,
-                n_slides=n_slides  # User-specified slide count (validated against template)
+                n_slides=n_slides,  # User-specified slide count (validated against template)
+                template_id=template,  # Template style (general, modern, standard, swift)
+                theme_id=theme  # Theme style (edge-yellow, mint-blue, etc.)
             )
 
             # Step 4: Finalize (100%)

@@ -81,20 +81,31 @@
         }
 
         .main-container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 2rem;
+            grid-template-columns: minmax(300px, 400px) 1fr minmax(400px, 500px);
+            gap: 1.5rem;
             padding: 2rem;
             min-height: calc(100vh - 80px);
         }
 
-        .input-panel, .preview-panel {
+        .input-panel, .middle-panel, .preview-panel {
             background: var(--surface-elevated);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-md);
             padding: 2rem;
+        }
+
+        .input-panel {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .middle-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
         }
 
         .panel-title {
@@ -120,6 +131,51 @@
             font-weight: 500;
             color: var(--text-primary);
             margin-bottom: 0.5rem;
+        }
+
+        .slide-count-control {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .slide-count-btn {
+            width: 36px;
+            height: 36px;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--background);
+            color: var(--text-primary);
+            font-size: 1.25rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .slide-count-btn:hover:not(:disabled) {
+            border-color: var(--primary-color);
+            background: rgb(79 70 229 / 0.05);
+            transform: scale(1.05);
+        }
+
+        .slide-count-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .slide-count-input {
+            flex: 1;
+            text-align: center;
+            padding: 0.5rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            font-size: 1rem;
+            font-weight: 600;
+            background: var(--surface);
+            color: var(--text-primary);
         }
 
         .text-input {
@@ -256,9 +312,48 @@
             top: 100px;
             height: fit-content;
             max-height: calc(100vh - 120px);
-            overflow: hidden;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .slide-preview {
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            aspect-ratio: 16/9;
+            background: linear-gradient(135deg, #f8fafc, #e2e8f0);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3rem;
+            color: var(--text-muted);
+        }
+
+        .slide-preview-empty {
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+            text-align: center;
+            padding: 2rem;
+        }
+
+        .slide-preview-transcript {
+            padding: 1rem;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            color: var(--text-primary);
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .slide-preview-transcript h4 {
+            font-size: 1rem;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            color: var(--text-primary);
         }
 
         .preview-empty {
@@ -326,26 +421,36 @@
         }
 
         .slides-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            display: flex;
+            flex-direction: row;
             gap: 1rem;
-            flex: 1;
-            overflow-y: auto;
+            overflow-x: auto;
+            overflow-y: hidden;
+            padding: 0.5rem 0;
             margin-bottom: 1.5rem;
         }
 
         .slide-card {
-            border: 1px solid var(--border);
+            min-width: 180px;
+            max-width: 180px;
+            border: 2px solid var(--border);
             border-radius: var(--radius-md);
             overflow: hidden;
             transition: all 0.2s ease;
             cursor: pointer;
+            flex-shrink: 0;
         }
 
         .slide-card:hover {
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
             border-color: var(--primary-color);
+        }
+
+        .slide-card.selected {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 2px rgb(79 70 229 / 0.2);
+            transform: scale(1.05);
         }
 
         .slide-thumbnail {
@@ -442,7 +547,7 @@
         }
 
         .transcript-content {
-            max-height: 400px;
+            max-height: 600px;
             overflow-y: auto;
             padding: 1rem;
             background: var(--surface);
@@ -537,38 +642,37 @@ AI 將自動分析您的內容並建立結構化的投影片。"
             </div>
 
             <div class="input-group">
-                <label class="input-label">模板樣式</label>
-                <div class="template-grid">
-                    <div class="template-card selected" data-template="administrative">
-                        <div class="template-icon">💼</div>
-                        <div class="template-name">行政簡報</div>
-                    </div>
-                    <div class="template-card" data-template="educational">
-                        <div class="template-icon">🎓</div>
-                        <div class="template-name">教學簡報</div>
-                    </div>
-                    <div class="template-card" data-template="general">
-                        <div class="template-icon">🎨</div>
-                        <div class="template-name">一般簡報</div>
-                    </div>
+                <label for="slide-count" class="input-label">投影片數量</label>
+                <div class="slide-count-control">
+                    <button type="button" class="slide-count-btn" id="decrease-slides">−</button>
+                    <input type="number" class="slide-count-input" id="slide-count" value="6" min="3" max="12" readonly>
+                    <button type="button" class="slide-count-btn" id="increase-slides">+</button>
+                </div>
+                <div class="input-meta" style="margin-top: 0.5rem;">
+                    <span style="color: var(--text-muted); font-size: 0.75rem;">範圍：3-12 張投影片</span>
                 </div>
             </div>
 
             <div class="input-group">
-                <label for="slide-count" class="input-label">投影片數量</label>
-                <select id="slide-count" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; background: var(--background); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;">
-                    <option value="3">3 張投影片</option>
-                    <option value="4">4 張投影片</option>
-                    <option value="5">5 張投影片</option>
-                    <option value="6" selected>6 張投影片（推薦）</option>
-                    <option value="7">7 張投影片</option>
-                    <option value="8">8 張投影片</option>
-                    <option value="10">10 張投影片</option>
-                    <option value="12">12 張投影片</option>
+                <label for="template-select" class="input-label">模版樣式</label>
+                <select id="template-select" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; background: var(--background); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;">
+                    <option value="general">General - 一般樣式</option>
+                    <option value="modern">Modern - 現代樣式</option>
+                    <option value="standard">Standard - 標準樣式</option>
+                    <option value="swift">Swift - 簡潔樣式</option>
                 </select>
-                <div class="input-meta" style="margin-top: 0.5rem;">
-                    <span style="color: var(--text-muted); font-size: 0.75rem;">⚠️ 超過模板支援的數量將自動調整</span>
-                </div>
+            </div>
+
+            <div class="input-group">
+                <label for="theme-select" class="input-label">佈景主題</label>
+                <select id="theme-select" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; background: var(--background); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;">
+                    <option value="">無（使用預設）</option>
+                    <option value="edge-yellow">Edge Yellow - 邊緣黃</option>
+                    <option value="mint-blue">Mint Blue - 薄荷藍</option>
+                    <option value="light-rose">Light Rose - 淺玫瑰紅</option>
+                    <option value="professional-blue">Professional Blue - 專業藍</option>
+                    <option value="professional-dark">Professional Dark - 專業黑</option>
+                </select>
             </div>
 
             <div class="action-buttons">
@@ -581,13 +685,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
             </div>
         </section>
 
-        <section class="preview-panel">
-            <div id="preview-empty" class="preview-empty">
-                <div class="preview-empty-icon">📋</div>
-                <div class="preview-empty-text">準備開始建立</div>
-                <div class="preview-empty-hint">請輸入您的內容並點擊「生成簡報」來查看預覽</div>
-            </div>
-
+        <section class="middle-panel">
             <div id="progress-section" class="progress-section">
                 <div class="progress-icon">⚡</div>
                 <div class="progress-text" id="progress-text">正在分析內容...</div>
@@ -620,19 +718,34 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 <div class="transcript-section" id="transcript-section" style="display: none;">
                     <div class="transcript-header">
                         <h3 class="transcript-title">演講稿</h3>
-                        <select id="transcript-style" class="transcript-style-select">
-                            <option value="educational">教學式</option>
-                            <option value="formal">正式</option>
-                            <option value="conversational">對話式</option>
-                        </select>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <select id="transcript-style" class="transcript-style-select">
+                                <option value="educational">教學式</option>
+                                <option value="formal">正式</option>
+                                <option value="conversational">對話式</option>
+                            </select>
+                            <button class="export-btn primary" id="download-transcript" style="margin: 0;" disabled>
+                                💾 下載演講稿
+                            </button>
+                        </div>
                     </div>
                     <div class="transcript-content" id="transcript-content">
                         <div class="transcript-loading">正在生成演講稿...</div>
                     </div>
-                    <button class="export-btn primary" id="download-transcript" style="margin-top: 1rem;">
-                        💾 下載演講稿
-                    </button>
                 </div>
+            </div>
+        </section>
+
+        <section class="preview-panel">
+            <div id="slide-preview" class="slide-preview">
+                <div class="slide-preview-empty">
+                    點擊投影片以預覽
+                </div>
+            </div>
+
+            <div id="slide-preview-transcript" class="slide-preview-transcript" style="display: none;">
+                <h4>投影片演講稿</h4>
+                <p id="slide-transcript-text">請先生成演講稿</p>
             </div>
         </section>
     </main>
@@ -642,9 +755,12 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
         class PresentationApp {
             constructor() {
-                this.selectedTemplate = 'administrative';
+                this.selectedTemplate = 'general';
+                this.selectedTheme = null;
                 this.currentPresentation = null;
                 this.presentationId = null;
+                this.selectedSlideIndex = null;
+                this.transcriptData = null;
                 this.init();
             }
 
@@ -659,34 +775,58 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.charCount = document.getElementById('char-count');
                 this.generateBtn = document.getElementById('generate-btn');
                 this.clearBtn = document.getElementById('clear-btn');
-                
-                this.previewEmpty = document.getElementById('preview-empty');
+
+                // Slide count controls
+                this.slideCountInput = document.getElementById('slide-count');
+                this.decreaseBtn = document.getElementById('decrease-slides');
+                this.increaseBtn = document.getElementById('increase-slides');
+
+                // Template and theme selects
+                this.templateSelect = document.getElementById('template-select');
+                this.themeSelect = document.getElementById('theme-select');
+
+                // Progress and results
                 this.progressSection = document.getElementById('progress-section');
                 this.resultsSection = document.getElementById('results-section');
-                
                 this.progressText = document.getElementById('progress-text');
                 this.progressFill = document.getElementById('progress-fill');
                 this.progressPercentage = document.getElementById('progress-percentage');
-                
+
+                // Slides
                 this.slidesGrid = document.getElementById('slides-grid');
                 this.resultsMeta = document.getElementById('results-meta');
-                
-                this.templateCards = document.querySelectorAll('.template-card');
-                
+
+                // Transcript
                 this.transcriptSection = document.getElementById('transcript-section');
                 this.transcriptContent = document.getElementById('transcript-content');
                 this.transcriptStyle = document.getElementById('transcript-style');
+                this.downloadTranscriptBtn = document.getElementById('download-transcript');
+
+                // Preview panel
+                this.slidePreview = document.getElementById('slide-preview');
+                this.slidePreviewTranscript = document.getElementById('slide-preview-transcript');
+                this.slideTranscriptText = document.getElementById('slide-transcript-text');
             }
 
             bindEvents() {
                 this.contentInput.addEventListener('input', () => this.updateCharCount());
                 this.generateBtn.addEventListener('click', () => this.generatePresentation());
                 this.clearBtn.addEventListener('click', () => this.clearContent());
-                
-                this.templateCards.forEach(card => {
-                    card.addEventListener('click', () => this.selectTemplate(card));
+
+                // Slide count controls
+                this.decreaseBtn.addEventListener('click', () => this.adjustSlideCount(-1));
+                this.increaseBtn.addEventListener('click', () => this.adjustSlideCount(1));
+
+                // Template and theme selects
+                this.templateSelect.addEventListener('change', (e) => {
+                    this.selectedTemplate = e.target.value;
                 });
 
+                this.themeSelect.addEventListener('change', (e) => {
+                    this.selectedTheme = e.target.value || null;
+                });
+
+                // Download and transcript
                 document.getElementById('download-pptx').addEventListener('click', () => {
                     this.downloadFile('pptx');
                 });
@@ -704,22 +844,32 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 });
             }
 
+            adjustSlideCount(delta) {
+                const current = parseInt(this.slideCountInput.value);
+                const min = parseInt(this.slideCountInput.min);
+                const max = parseInt(this.slideCountInput.max);
+                const newValue = Math.max(min, Math.min(max, current + delta));
+
+                this.slideCountInput.value = newValue;
+
+                // Update button states
+                this.decreaseBtn.disabled = newValue <= min;
+                this.increaseBtn.disabled = newValue >= max;
+            }
+
             updateCharCount() {
                 const length = this.contentInput.value.length;
                 this.charCount.textContent = `${length} 個字元`;
                 this.generateBtn.disabled = length < 50;
             }
 
-            selectTemplate(selectedCard) {
-                this.templateCards.forEach(card => card.classList.remove('selected'));
-                selectedCard.classList.add('selected');
-                this.selectedTemplate = selectedCard.dataset.template;
-            }
-
             clearContent() {
                 this.contentInput.value = '';
                 this.updateCharCount();
-                this.showEmptyState();
+                this.selectedSlideIndex = null;
+                this.transcriptData = null;
+                this.progressSection.style.display = 'none';
+                this.resultsSection.style.display = 'none';
             }
 
             async generatePresentation() {
@@ -732,20 +882,26 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                 try {
                     // Get user-selected slide count
-                    const slideCountSelect = document.getElementById('slide-count');
-                    const nSlides = parseInt(slideCountSelect.value);
+                    const nSlides = parseInt(this.slideCountInput.value);
+
+                    const payload = {
+                        content: content,
+                        template: this.selectedTemplate,
+                        language: 'zh-TW',
+                        n_slides: nSlides
+                    };
+
+                    // Add theme if selected
+                    if (this.selectedTheme) {
+                        payload.theme = this.selectedTheme;
+                    }
 
                     const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json'
                         },
-                        body: JSON.stringify({
-                            content: content,
-                            template: this.selectedTemplate,
-                            language: 'zh-TW',
-                            n_slides: nSlides  // User-specified slide count
-                        })
+                        body: JSON.stringify(payload)
                     });
 
                     if (!generateResponse.ok) {
@@ -758,7 +914,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 } catch (error) {
                     console.error('生成失敗:', error);
                     alert('生成簡報失敗，請稍後再試。\n錯誤: ' + error.message);
-                    this.showEmptyState();
+                    this.progressSection.style.display = 'none';
+                    this.resultsSection.style.display = 'none';
                 } finally {
                     this.generateBtn.classList.remove('btn-loading');
                     this.generateBtn.disabled = false;
@@ -809,7 +966,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 slides.forEach((slide, index) => {
                     const slideElement = document.createElement('div');
                     slideElement.className = 'slide-card';
-                    
+                    slideElement.dataset.slideIndex = index;
+
                     slideElement.innerHTML = `
                         <div class="slide-thumbnail">
                             <div class="slide-number">${index + 1}</div>
@@ -817,9 +975,49 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                         </div>
                         <div class="slide-title">${slide.title}</div>
                     `;
-                    
+
+                    // Add click handler for slide preview
+                    slideElement.addEventListener('click', () => {
+                        this.selectSlide(index, slide);
+                    });
+
                     this.slidesGrid.appendChild(slideElement);
                 });
+
+                // Auto-select first slide
+                if (slides.length > 0) {
+                    this.selectSlide(0, slides[0]);
+                }
+            }
+
+            selectSlide(index, slide) {
+                // Update selected state
+                document.querySelectorAll('.slide-card').forEach(card => {
+                    card.classList.remove('selected');
+                });
+                document.querySelector(`.slide-card[data-slide-index="${index}"]`)?.classList.add('selected');
+
+                this.selectedSlideIndex = index;
+
+                // Update preview panel
+                this.slidePreview.innerHTML = `
+                    <div style="display: flex; flex-direction: column; gap: 1rem; padding: 2rem;">
+                        <div style="font-size: 2rem;">${this.getSlideIcon(slide.type)}</div>
+                        <div style="font-size: 1.25rem; font-weight: 600;">${slide.title}</div>
+                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
+                            類型: ${slide.type} | 投影片 ${index + 1}
+                        </div>
+                    </div>
+                `;
+
+                // Update transcript if available
+                if (this.transcriptData && this.transcriptData.transcripts[index]) {
+                    const transcript = this.transcriptData.transcripts[index];
+                    this.slidePreviewTranscript.style.display = 'block';
+                    this.slideTranscriptText.textContent = transcript.transcript;
+                } else {
+                    this.slidePreviewTranscript.style.display = 'none';
+                }
             }
 
             getSlideIcon(type) {
@@ -832,22 +1030,14 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 return icons[type] || '📄';
             }
 
-            showEmptyState() {
-                this.previewEmpty.style.display = 'flex';
-                this.progressSection.classList.remove('show');
-                this.resultsSection.classList.remove('show');
-            }
-
             showProgressState() {
-                this.previewEmpty.style.display = 'none';
-                this.progressSection.classList.add('show');
-                this.resultsSection.classList.remove('show');
+                this.progressSection.style.display = 'flex';
+                this.resultsSection.style.display = 'none';
             }
 
             showResultsState() {
-                this.previewEmpty.style.display = 'none';
-                this.progressSection.classList.remove('show');
-                this.resultsSection.classList.add('show');
+                this.progressSection.style.display = 'none';
+                this.resultsSection.style.display = 'block';
             }
 
             downloadFile(format) {
@@ -868,6 +1058,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                 this.transcriptSection.style.display = 'block';
                 this.transcriptContent.innerHTML = '<div class="transcript-loading">正在生成演講稿，請稍候...</div>';
+                this.downloadTranscriptBtn.disabled = true;  // Disable download button during generation
 
                 try {
                     const style = this.transcriptStyle.value;
@@ -908,12 +1099,15 @@ AI 將自動分析您的內容並建立結構化的投影片。"
             }
 
             renderTranscript(data) {
+                // Store transcript data for slide preview
+                this.transcriptData = data;
+
                 const transcripts = data.transcripts || [];
                 const totalMinutes = data.total_duration_minutes || 0;
 
                 let html = `
                     <div style="padding: 1rem; background: var(--background); border-radius: var(--radius-sm); margin-bottom: 1rem;">
-                        <strong>預估演講時間:</strong> ${totalMinutes} 分鐘 | 
+                        <strong>預估演講時間:</strong> ${totalMinutes} 分鐘 |
                         <strong>投影片數量:</strong> ${data.total_slides}
                     </div>
                 `;
@@ -921,8 +1115,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 transcripts.forEach(slide => {
                     const minutes = Math.floor(slide.duration_seconds / 60);
                     const seconds = slide.duration_seconds % 60;
-                    const timeStr = minutes > 0 ? 
-                        `${minutes}分${seconds}秒` : 
+                    const timeStr = minutes > 0 ?
+                        `${minutes}分${seconds}秒` :
                         `${seconds}秒`;
 
                     html += `
@@ -941,6 +1135,13 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 });
 
                 this.transcriptContent.innerHTML = html;
+                this.downloadTranscriptBtn.disabled = false;  // Enable download button after successful rendering
+
+                // Update preview panel if a slide is selected
+                if (this.selectedSlideIndex !== null && this.currentPresentation) {
+                    const slide = this.currentPresentation.slides[this.selectedSlideIndex];
+                    this.selectSlide(this.selectedSlideIndex, slide);
+                }
             }
 
             downloadTranscript() {

@@ -1,3 +1,4 @@
+<!-- docs/PLATFORM_SUPPORT.md -->
 # 多平台支援說明
 
 TeacherAssist 支援 **AMD64 (x86_64)** 和 **ARM64 (Apple Silicon / aarch64)** 兩種架構。

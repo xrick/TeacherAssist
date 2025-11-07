@@ -1,3 +1,4 @@
+# backend/app/models.py
 from pydantic import BaseModel, Field
 from typing import List, Optional, Literal
 from enum import Enum
@@ -6,10 +7,21 @@ class TemplateType(str, Enum):
     ADMINISTRATIVE = "administrative"
     EDUCATIONAL = "educational"
     GENERAL = "general"
+    MODERN = "modern"
+    STANDARD = "standard"
+    SWIFT = "swift"
+
+class ThemeType(str, Enum):
+    EDGE_YELLOW = "edge-yellow"
+    MINT_BLUE = "mint-blue"
+    LIGHT_ROSE = "light-rose"
+    PROFESSIONAL_BLUE = "professional-blue"
+    PROFESSIONAL_DARK = "professional-dark"
 
 class GenerateRequest(BaseModel):
     content: str = Field(..., min_length=50, description="Input content for presentation")
-    template: TemplateType = Field(default=TemplateType.ADMINISTRATIVE, description="Presentation template style")
+    template: TemplateType = Field(default=TemplateType.GENERAL, description="Presentation template style")
+    theme: Optional[ThemeType] = Field(default=None, description="Presentation theme (optional)")
     language: str = Field(default="zh-TW", description="Content language")
     n_slides: int = Field(default=6, ge=3, le=12, description="Number of slides to generate (3-12)")
 
@@ -61,6 +73,6 @@ class SlideTranscript(BaseModel):
 class TranscriptResponse(BaseModel):
     presentation_id: str
     total_slides: int
-    total_duration_minutes: int
+    total_duration_minutes: float  # Changed from int to float to support fractional minutes (e.g., 2.5 mins)
     transcripts: List[SlideTranscript]
     full_transcript: str
