@@ -5,6 +5,8 @@ services:
     ports:
        - "8001:8000" #API Port (external 8001 -> internal 8000)
       # - "8001:3000" #Frontend Port
+    environment:
+      - ENABLE_WEB_SEARCH=false
     volumes:
       - ./app_data/chroma:/app/servers/fastapi/chroma
       - ./app_data/exports:/app_data/exports  # Share exports directory with backend

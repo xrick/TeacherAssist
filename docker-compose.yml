@@ -16,6 +16,7 @@ services:
       - OLLAMA_MODEL=${OLLAMA_MODEL}
       - IMAGE_PROVIDER=pexels
       - PEXELS_API_KEY=kKOp88XcQabMQH1lCUMSMjqNRByDrHuFNe3ED4FzkQ4rsg2Yv9peyRA6
+      - ENABLE_WEB_SEARCH=false
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:
