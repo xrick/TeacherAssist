@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     # Ollama Configuration
     ollama_url: str = "http://localhost:11434"
     # ollama_model: str = "phi4-mini-reasoning:3.8b"
-    ollama_model: str = "gpt-oss:20b"
+    ollama_model: str = "phi4:latest" #"gpt-oss:20b"
     # Pexels Configuration
     pexels_api_key: str
     

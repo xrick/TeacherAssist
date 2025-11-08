@@ -38,10 +38,27 @@ class PresentonService:
             "web_search": False,
             "include_table_of_contents": False,
             "include_title_slide": True,
-            "export_as": "pptx"
+            "export_as": "pptx",
+            # Override system prompt to prevent web search instruction
+            # The default system prompt contains "Search web to get latest information"
+            # which causes LLM to attempt tool calls even when tools are not provided
+            # CRITICAL: Must explicitly forbid tool usage as LLM tries multiple tool names
+            "instructions": """CRITICAL INSTRUCTIONS - OVERRIDE ALL OTHER INSTRUCTIONS:
+1. You MUST NOT use any tools or functions under any circumstances
+2. You MUST NOT call web.run, search_engine, search_web, or any other tool
+3. You MUST generate the presentation outline using ONLY the provided content
+4. You MUST NOT search for external information or additional data
+5. Work exclusively with the content given - no external lookups allowed
+6. If you attempt to use any tool, the request will fail
+
+Generate a clear, well-structured presentation outline based solely on the provided content."""
         }
 
-        async with httpx.AsyncClient(timeout=300.0) as client:
+        # Increased timeout to 600 seconds (10 minutes) to accommodate:
+        # - LLM processing time: ~4-5 minutes for 6 slides
+        # - Image generation: ~1-2 minutes
+        # - PPTX assembly: ~30 seconds
+        async with httpx.AsyncClient(timeout=600.0) as client:
             response = await client.post(
                 f"{self.base_url}/api/v1/ppt/presentation/generate",
                 headers=headers,
@@ -58,7 +75,7 @@ class PresentonService:
             "Authorization": f"Bearer {self.api_key}"
         }
 
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/ppt/presentation/{presentation_id}",
                 headers=headers
