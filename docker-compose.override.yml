@@ -7,6 +7,7 @@ services:
       # - "8001:3000" #Frontend Port
     environment:
       - ENABLE_WEB_SEARCH=false
+      - OLLAMA_MODE=qwen3:14b
     volumes:
       - ./app_data/chroma:/app/servers/fastapi/chroma
       - ./app_data/exports:/app_data/exports  # Share exports directory with backend
