@@ -2,6 +2,7 @@
 import httpx
 from typing import Dict, Any, List
 from app.config import get_settings
+from logging import logger
 
 class ZephyrService:
     """Service for generating presentation transcripts using Ollama model"""
@@ -9,8 +10,8 @@ class ZephyrService:
     def __init__(self):
         self.settings = get_settings()
         self.base_url = self.settings.ollama_url
-        self.model = "phi4-mini-reasoning:3.8b"
-        
+        self.model = self.settings.ollama_model#"phi4-mini-reasoning:3.8b"
+        logger.info(f"Initialized ZephyrService with model: {self.model}")
     async def generate_transcript(
         self,
         slides: List[Dict[str, Any]],
