@@ -1,8 +1,10 @@
 # backend/app/services/zephyr_service.py
 import httpx
+import logging
 from typing import Dict, Any, List
 from app.config import get_settings
-from logging import logger
+
+logger = logging.getLogger(__name__)
 
 class ZephyrService:
     """Service for generating presentation transcripts using Ollama model"""

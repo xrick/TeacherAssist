@@ -105,34 +105,115 @@ fi
 
 echo ""
 
-# ===== Step 2: Port 衝突檢查 =====
+# ===== Step 2: Port 衝突檢查與智能處理 =====
 echo "Step 2: 檢查 Port 可用性"
 echo "----------------------"
+
+# 全局變數記錄已停止的 PIDs
+KILLED_PIDS=()
 
 check_port() {
     local port=$1
     local service=$2
-    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
-        print_warning "Port $port 已被佔用 ($service)"
-        echo "當前使用者:"
-        lsof -Pi :$port -sTCP:LISTEN | grep -v "^COMMAND" | head -3
-        read -p "是否要停止佔用該 port 的程序？(y/N): " -n 1 -r
-        echo ""
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            local pid=$(lsof -Pi :$port -sTCP:LISTEN -t)
-            kill $pid 2>/dev/null && print_success "已停止 PID: $pid"
+    local container_prefix=$3  # 期望的 container 名稱前綴
+
+    if ! lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        print_success "Port $port 可用 ($service)"
+        return 0
+    fi
+
+    # Port 被佔用，獲取詳細資訊
+    local pid=$(lsof -Pi :$port -sTCP:LISTEN -t | head -1)
+    local process_name=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+    local process_cmd=$(ps -p $pid -o args= 2>/dev/null || echo "")
+
+    # 檢查是否已經停止過此 PID
+    if [[ " ${KILLED_PIDS[@]} " =~ " ${pid} " ]]; then
+        print_info "Port $port: PID $pid 已停止，等待釋放..."
+        # 等待 port 釋放（最多 5 秒）
+        local count=0
+        while lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1 && [ $count -lt 10 ]; do
+            sleep 0.5
+            ((count++))
+        done
+
+        if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+            print_warning "Port $port 仍被佔用，但 PID $pid 已停止，可能是延遲釋放"
+            print_info "繼續執行..."
+            return 0
         else
-            print_error "Port $port 衝突，無法繼續"
+            print_success "Port $port 已釋放 ($service)"
+            return 0
+        fi
+    fi
+
+    # 檢查是否是本專案的 Docker container
+    if [[ "$process_name" == *"docker"* ]] || [[ "$process_name" == *"OrbStack"* ]]; then
+        # 檢查 container 名稱
+        local containers=$(docker ps --format "{{.Names}}" 2>/dev/null | grep -E "^(ppt-|presenton)" || echo "")
+
+        if [ -n "$containers" ]; then
+            print_warning "Port $port 被本專案的 Docker container 佔用"
+            echo "  Container(s): $containers"
+            print_info "這是正常的開發環境狀態，將重用現有 container"
+            return 0
+        fi
+
+        # 檢查是否是 OrbStack 的其他服務
+        if [[ "$process_name" == *"OrbStack"* ]]; then
+            print_warning "Port $port 被 OrbStack 佔用 (PID: $pid)"
+            echo "  Process: $process_cmd" | head -c 100
+            echo ""
+            read -p "是否停止此程序並繼續？(y/N): " -n 1 -r
+            echo ""
+            if [[ $REPLY =~ ^[Yy]$ ]]; then
+                kill $pid 2>/dev/null
+                if [ $? -eq 0 ]; then
+                    print_success "已停止 PID: $pid"
+                    KILLED_PIDS+=($pid)
+                    # 等待 port 釋放
+                    sleep 1
+                    return 0
+                else
+                    print_error "無法停止 PID: $pid"
+                    exit 1
+                fi
+            else
+                print_error "Port $port 衝突，無法繼續"
+                exit 1
+            fi
+        fi
+    fi
+
+    # 其他進程佔用
+    print_warning "Port $port 被其他程序佔用 ($service)"
+    echo "  PID: $pid"
+    echo "  Process: $process_name"
+    echo "  Command: $process_cmd" | head -c 100
+    echo ""
+    read -p "是否停止此程序？(y/N): " -n 1 -r
+    echo ""
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        kill $pid 2>/dev/null
+        if [ $? -eq 0 ]; then
+            print_success "已停止 PID: $pid"
+            KILLED_PIDS+=($pid)
+            sleep 1
+            return 0
+        else
+            print_error "無法停止 PID: $pid"
             exit 1
         fi
     else
-        print_success "Port $port 可用 ($service)"
+        print_error "Port $port 衝突，無法繼續"
+        exit 1
     fi
 }
 
-check_port 5050 "Backend"
-check_port 8001 "Presenton"
-check_port 8080 "Frontend"
+# 檢查各服務 port（按順序）
+check_port 5050 "Backend" "ppt-backend"
+check_port 8001 "Presenton" "presenton-api"
+check_port 8080 "Frontend" ""
 
 echo ""
 
