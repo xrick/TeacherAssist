@@ -192,13 +192,26 @@ async def download_transcript(presentation_id: str):
 @router.get("/transcript/{presentation_id}")
 async def get_transcript(presentation_id: str):
     """Get cached transcript data"""
-    
+
     transcript_data = transcripts_cache.get(presentation_id)
-    
+
     if not transcript_data:
         raise HTTPException(
             status_code=404,
             detail="Transcript not found"
         )
-    
+
     return transcript_data
+
+@router.get("/presentation/{presentation_id}")
+async def get_presentation_details(presentation_id: str):
+    """Get complete presentation data including all slides"""
+
+    try:
+        presentation_data = await presenton.get_presentation_status(presentation_id)
+        return presentation_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch presentation: {str(e)}"
+        )

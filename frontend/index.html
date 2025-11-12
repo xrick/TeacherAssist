@@ -761,6 +761,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.presentationId = null;
                 this.selectedSlideIndex = null;
                 this.transcriptData = null;
+                this.slideDetailsCache = {};
                 this.init();
             }
 
@@ -990,7 +991,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 }
             }
 
-            selectSlide(index, slide) {
+            async selectSlide(index, slide) {
                 // Update selected state
                 document.querySelectorAll('.slide-card').forEach(card => {
                     card.classList.remove('selected');
@@ -999,16 +1000,91 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                 this.selectedSlideIndex = index;
 
-                // Update preview panel
-                this.slidePreview.innerHTML = `
-                    <div style="display: flex; flex-direction: column; gap: 1rem; padding: 2rem;">
-                        <div style="font-size: 2rem;">${this.getSlideIcon(slide.type)}</div>
-                        <div style="font-size: 1.25rem; font-weight: 600;">${slide.title}</div>
-                        <div style="font-size: 0.875rem; color: var(--text-secondary);">
-                            類型: ${slide.type} | 投影片 ${index + 1}
+                // Fetch complete slide details if presentation_id available
+                let detailedSlide = null;
+                if (this.presentationId) {
+                    const detailedData = await this.fetchSlideDetails(this.presentationId);
+                    if (detailedData && detailedData.slides && detailedData.slides[index]) {
+                        detailedSlide = detailedData.slides[index];
+                    }
+                }
+
+                // Build preview HTML
+                let previewHtml = `
+                    <div style="display: flex; flex-direction: column; gap: 1.5rem; padding: 2rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div style="font-size: 2rem;">${this.getSlideIcon(slide.type)}</div>
+                            <div>
+                                <div style="font-size: 1.5rem; font-weight: 600;">${slide.title}</div>
+                                <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.25rem;">
+                                    類型: ${slide.type} | 投影片 ${index + 1}
+                                </div>
+                            </div>
                         </div>
-                    </div>
                 `;
+
+                // Add detailed content if available
+                if (detailedSlide) {
+                    if (detailedSlide.layout) {
+                        previewHtml += `
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">佈局樣式</div>
+                                <div style="padding: 0.75rem; background: var(--bg-secondary); border-radius: 6px; font-size: 0.875rem;">
+                                    ${detailedSlide.layout_group} / ${detailedSlide.layout}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    if (detailedSlide.content) {
+                        const renderedContent = this.renderSlideContent(detailedSlide.content);
+                        previewHtml += `
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">投影片內容</div>
+                                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 6px; font-size: 0.875rem; max-height: 400px; overflow-y: auto;">
+                                    ${renderedContent}
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    if (detailedSlide.speaker_note) {
+                        previewHtml += `
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">演講者備註</div>
+                                <div style="padding: 1rem; background: var(--bg-secondary); border-radius: 6px; font-size: 0.875rem;">
+                                    ${detailedSlide.speaker_note}
+                                </div>
+                            </div>
+                        `;
+                    }
+                } else {
+                    // Basic content from generation response
+                    if (slide.content && slide.content.length > 0) {
+                        previewHtml += `
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">內容要點</div>
+                                <ul style="padding-left: 1.5rem; margin: 0;">
+                                    ${slide.content.map(point => `<li style="margin-bottom: 0.5rem;">${point}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    }
+
+                    if (slide.image_url) {
+                        previewHtml += `
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 0.5rem;">投影片圖片</div>
+                                <img src="${slide.image_url}"
+                                     alt="Slide image"
+                                     style="max-width: 100%; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                            </div>
+                        `;
+                    }
+                }
+
+                previewHtml += `</div>`;
+                this.slidePreview.innerHTML = previewHtml;
 
                 // Update transcript if available
                 if (this.transcriptData && this.transcriptData.transcripts[index]) {
@@ -1028,6 +1104,105 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                     conclusion: '🎯'
                 };
                 return icons[type] || '📄';
+            }
+
+            renderSlideContent(content) {
+                if (!content || typeof content !== 'object') {
+                    return '<div style="color: var(--text-secondary); font-style: italic;">無內容資料</div>';
+                }
+
+                const metadataFields = ['companyName', 'date', 'id', 'index', 'slideId', 'presentationId', 'createdAt', 'updatedAt'];
+                const textFields = ['title', 'subtitle', 'heading', 'header'];
+                const descriptionFields = ['description', 'text', 'paragraph', 'content', 'body'];
+                const listFields = ['bullets', 'points', 'items', 'list'];
+
+                let html = '';
+
+                for (const [key, value] of Object.entries(content)) {
+                    if (metadataFields.includes(key) || value === null || value === undefined || value === '') {
+                        continue;
+                    }
+
+                    const displayKey = key.replace(/([A-Z])/g, ' $1').trim().replace(/^./, str => str.toUpperCase());
+
+                    if (textFields.includes(key)) {
+                        html += `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-size: 1.1rem; font-weight: 600; color: var(--primary-color);">${value}</div>
+                            </div>
+                        `;
+                    } else if (descriptionFields.includes(key)) {
+                        html += `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 500; margin-bottom: 0.25rem;">${displayKey}</div>
+                                <div style="line-height: 1.6; color: var(--text-primary);">${value}</div>
+                            </div>
+                        `;
+                    } else if (listFields.includes(key) && Array.isArray(value)) {
+                        html += `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 500; margin-bottom: 0.25rem;">${displayKey}</div>
+                                <ul style="margin: 0; padding-left: 1.5rem;">
+                                    ${value.map(item => `<li style="margin-bottom: 0.25rem;">${item}</li>`).join('')}
+                                </ul>
+                            </div>
+                        `;
+                    } else if (Array.isArray(value)) {
+                        html += `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 500; margin-bottom: 0.25rem;">${displayKey}</div>
+                                <div style="padding-left: 1rem;">
+                                    ${value.map((item, idx) => {
+                                        if (typeof item === 'object') {
+                                            return `<div style="margin-bottom: 0.5rem;"><strong>${idx + 1}.</strong> ${JSON.stringify(item, null, 2)}</div>`;
+                                        }
+                                        return `<div style="margin-bottom: 0.25rem;">• ${item}</div>`;
+                                    }).join('')}
+                                </div>
+                            </div>
+                        `;
+                    } else if (typeof value === 'object') {
+                        html += `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 500; margin-bottom: 0.25rem;">${displayKey}</div>
+                                <div style="padding: 0.75rem; background: rgba(0,0,0,0.02); border-radius: 4px; font-size: 0.875rem;">
+                                    <pre style="margin: 0; white-space: pre-wrap; font-family: inherit;">${JSON.stringify(value, null, 2)}</pre>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        html += `
+                            <div style="margin-bottom: 0.75rem;">
+                                <span style="font-weight: 500;">${displayKey}:</span>
+                                <span style="margin-left: 0.5rem;">${value}</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                return html || '<div style="color: var(--text-secondary); font-style: italic;">無可顯示的內容</div>';
+            }
+
+            async fetchSlideDetails(presentationId) {
+                if (this.slideDetailsCache[presentationId]) {
+                    console.log('Using cached slide details');
+                    return this.slideDetailsCache[presentationId];
+                }
+
+                try {
+                    const response = await fetch(`${API_BASE_URL}/presentation/${presentationId}`);
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                    }
+
+                    const data = await response.json();
+                    this.slideDetailsCache[presentationId] = data;
+                    console.log('Fetched and cached slide details:', data);
+                    return data;
+                } catch (error) {
+                    console.error('Failed to fetch slide details:', error);
+                    return null;
+                }
             }
 
             showProgressState() {

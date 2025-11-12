@@ -1,4 +1,5 @@
-<!-- prompt.md -->
+<!-- reuse_codes_prompt.md -->
+
 📋 STEP 1: READ REQUIREMENTS
 Claude, read the rules in u/CLAUDE.md, then use sequential thinking and proceed to the next step.
 STOP. Before reading further, confirm you understand:
@@ -28,7 +29,12 @@ RULES (violating ANY invalidates your response):
 ✅ Reference specific file paths
 ✅ Provide migration strategies
 
-[Your Prpmpt here]
+ /sc:implement ```
+You are a proficient and talent RAG developer.
+1. 實作目標：投影片詳細資料預覽
+2. 在你修改的同時，必須記錄你在那個檔案、那個函數及那此地方做了修改(新增、修改、刪除)
+3 please carefully and completely accomplish
+``` 
 
 FINAL REMINDER: If you suggest creating new files, explain why existing files cannot be extended. If you recommend rewrites, justify why refactoring won't work.
 🔍 STEP 2: ANALYZE CURRENT SYSTEM

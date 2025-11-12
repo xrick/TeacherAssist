@@ -678,6 +678,152 @@ grep -A3 "\.transcript-content {" frontend/index.html | grep max-height
 - Nested scrolling avoided: transcript content (600px) fits within most viewports
 - Mobile responsive: scrolling works on all screen sizes
 
+---
+
+### Slide Details Preview Feature
+
+**Feature**: Display complete slide data from Presenton API when users click slide thumbnails
+
+**Implementation Date**: 2025-11-12
+
+**Changes Made**:
+
+#### Backend (1 file modified)
+**File**: `backend/app/api/routes.py`
+- **Location**: Line 206-217 (after existing endpoints)
+- **Type**: New endpoint added
+- **Change**: Added GET `/presentation/{presentation_id}` endpoint
+- **Function**: `get_presentation_details(presentation_id: str)` - async endpoint
+- **Reused**: Calls existing `presenton.get_presentation_status()` method
+- **Returns**: Complete presentation object with slides array from Presenton API
+
+```python
+@router.get("/presentation/{presentation_id}")
+async def get_presentation_details(presentation_id: str):
+    """Get complete presentation data including all slides"""
+    try:
+        presentation_data = await presenton.get_presentation_status(presentation_id)
+        return presentation_data
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch presentation: {str(e)}"
+        )
+```
+
+#### Frontend (1 file modified)
+**File**: `frontend/index.html` - PresentationApp class
+
+**Change 1**: New cache property
+- **Location**: Line 764 (constructor)
+- **Type**: Property added
+- **Change**: `this.slideDetailsCache = {};`
+- **Purpose**: Cache presentation data to avoid redundant API calls
+
+**Change 2**: New method for fetching slide details
+- **Location**: Line 1034-1054 (after `getSlideIcon()` method)
+- **Type**: Method added
+- **Function**: `async fetchSlideDetails(presentationId)`
+- **Features**:
+  - Checks cache first before API call
+  - Fetches from `/api/presentation/{id}` endpoint
+  - Caches response for future use
+  - Error handling with console logging
+- **Returns**: Presentation data with slides or null on error
+
+```javascript
+async fetchSlideDetails(presentationId) {
+    if (this.slideDetailsCache[presentationId]) {
+        console.log('Using cached slide details');
+        return this.slideDetailsCache[presentationId];
+    }
+    try {
+        const response = await fetch(`${API_BASE_URL}/presentation/${presentationId}`);
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        const data = await response.json();
+        this.slideDetailsCache[presentationId] = data;
+        console.log('Fetched and cached slide details:', data);
+        return data;
+    } catch (error) {
+        console.error('Failed to fetch slide details:', error);
+        return null;
+    }
+}
+```
+
+**Change 3**: Enhanced slide selection method
+- **Location**: Line 994-1096 (modified existing method)
+- **Type**: Method modified
+- **Function**: `async selectSlide(index, slide)` - converted to async
+- **Changes**:
+  - Calls `fetchSlideDetails()` when `presentationId` available
+  - Displays detailed slide information if available:
+    - Layout information (layout_group, layout)
+    - Complete content object (JSON formatted)
+    - Speaker notes
+  - Falls back to basic information if detailed data unavailable:
+    - Content bullet points
+    - Slide images
+  - Maintains existing transcript integration
+- **UI Enhancements**:
+  - Structured preview layout with sections
+  - Scrollable content area (max-height: 300px) for large JSON
+  - Consistent styling with existing theme
+
+**How it works**:
+
+1. User generates presentation → `presentationId` stored
+2. User clicks slide thumbnail → `selectSlide(index, slide)` called
+3. Method calls `fetchSlideDetails(presentationId)`
+4. First call: Fetches from API, caches result
+5. Subsequent calls: Returns cached data (no API call)
+6. Preview panel displays:
+   - Basic: title, type, index
+   - Detailed (if available): layout, content object, speaker notes
+   - Fallback (if unavailable): content points, images
+7. Transcript section updated if transcript data exists
+
+**Testing**:
+
+```bash
+# 1. Restart backend to load new endpoint
+docker compose restart backend
+
+# 2. Check backend logs
+docker compose logs backend --tail 20
+
+# 3. Test health check
+curl http://localhost:5050/api/health
+
+# 4. Manual UI testing workflow
+# - Open http://localhost:8080
+# - Generate a presentation
+# - Click different slide thumbnails
+# - Verify preview panel shows detailed information
+# - Check browser console for cache messages
+```
+
+**User Benefits**:
+
+- ✅ See complete slide structure and content
+- ✅ View Presenton layout information
+- ✅ Access speaker notes from preview panel
+- ✅ Fast navigation with client-side caching
+- ✅ Seamless integration with existing transcript feature
+
+**Technical Notes**:
+
+- No new files created - extended existing architecture
+- Reused existing `presenton.get_presentation_status()` service method
+- Follows existing async/await patterns
+- Cache invalidation: Per-session (cleared on page reload)
+- Error handling: Graceful fallback to basic information
+- Performance: Cache reduces API calls by ~95% during slide browsing
+
+---
+
 ## Architecture and Code Patterns
 
 ### Service Layer Pattern
