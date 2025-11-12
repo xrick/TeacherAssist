@@ -5,7 +5,8 @@ version: '3.8'
 
 services:
   presenton:
-    image: ghcr.io/presenton/presenton:latest
+    # image: ghcr.io/presenton/presenton:latest  # Official image (has hardcoded web search)
+    image: presenton:arm64-local  # Modified local build (web search conditional)
     container_name: presenton-api
     ports:
       - "8001:8000"
