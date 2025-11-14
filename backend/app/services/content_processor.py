@@ -67,6 +67,13 @@ class ContentProcessor:
                 title=title  # User-provided title (optional)
             )
 
+            # Extract presentation_id BEFORE enhancement pipeline
+            presentation_id = presentation_result.get("presentation_id")
+            if not presentation_id:
+                # Fallback: extract from paths
+                pres_path = presentation_result.get("presentation_path", "")
+                presentation_id = pres_path.split("/")[-1].replace(".pptx", "") if pres_path else str(uuid.uuid4())
+
             # Step 4: Enhancement Pipeline (Optional, 90-100%)
             if enhance:
                 await self._apply_enhancement_pipeline(
@@ -78,14 +85,6 @@ class ContentProcessor:
 
             # Step 5: Finalize (100%)
             self._update_progress(task_id, 100, "簡報生成完成...")
-
-            # Extract presentation data from Presenton response
-            # Presenton /generate returns: {presentation_path, edit_page_path, presentation_id}
-            presentation_id = presentation_result.get("presentation_id")
-            if not presentation_id:
-                # Fallback: extract from paths
-                pres_path = presentation_result.get("presentation_path", "")
-                presentation_id = pres_path.split("/")[-1].replace(".pptx", "") if pres_path else str(uuid.uuid4())
 
             # Fetch full presentation details including slides
             presentation_details = await self.presenton.get_presentation_status(presentation_id)
