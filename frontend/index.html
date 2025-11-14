@@ -808,6 +808,33 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 </select>
             </div>
 
+            <div class="input-group">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                    <input type="checkbox" id="enhance-checkbox" style="cursor: pointer; width: 1.25rem; height: 1.25rem;">
+                    <span class="input-label" style="margin: 0;">品質加強模式 (Enhancement Pipeline)</span>
+                </label>
+                <div style="margin-top: 0.25rem; margin-left: 1.75rem; font-size: 0.75rem; color: var(--text-muted);">
+                    💡 啟用後將使用 3 階段品質提升流程：解析 → 優化 → 重建
+                </div>
+            </div>
+
+            <div class="input-group" id="enhancement-template-group" style="display: none;">
+                <label for="enhancement-template-select" class="input-label">加強模板選擇</label>
+                <select id="enhancement-template-select" style="width: 100%; padding: 0.75rem; border: 2px solid var(--border); border-radius: var(--radius-md); font-size: 0.875rem; background: var(--background); color: var(--text-primary); cursor: pointer; transition: all 0.2s ease;">
+                    <option value="">-- 自動選擇 --</option>
+                    <option value="thesis1.pptx">論文1 (Thesis 1)</option>
+                    <option value="custom_pptx_template_1.pptx">自訂模板 1</option>
+                    <option value="custom_pptx_template_2.pptx">自訂模板 2</option>
+                    <option value="custom_pptx_template_3.pptx">自訂模板 3</option>
+                    <option value="custom_pptx_template_4.pptx">自訂模板 4</option>
+                    <option value="custom_pptx_template_5.pptx">自訂模板 5</option>
+                    <option value="custom_pptx_template_6.pptx">自訂模板 6</option>
+                    <option value="custom_pptx_template_7.pptx">自訂模板 7</option>
+                    <option value="custom_pptx_template_8.pptx">自訂模板 8</option>
+                    <option value="custom_pptx_template_9.pptx">自訂模板 9</option>
+                </select>
+            </div>
+
             <div class="action-buttons">
                 <button id="generate-btn" class="btn btn-primary" disabled>
                     <span>✨ 生成簡報</span>
@@ -944,6 +971,11 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.templateUploadStatus = document.getElementById('template-upload-status');
                 this.templateRemoveBtn = document.getElementById('template-remove-btn');
 
+                // Enhancement Pipeline
+                this.enhanceCheckbox = document.getElementById('enhance-checkbox');
+                this.enhancementTemplateGroup = document.getElementById('enhancement-template-group');
+                this.enhancementTemplateSelect = document.getElementById('enhancement-template-select');
+
                 // Preview panel
                 this.slidePreview = document.getElementById('slide-preview');
                 this.slidePreviewTranscript = document.getElementById('slide-preview-transcript');
@@ -996,6 +1028,17 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.templateRemoveBtn.addEventListener('click', () => {
                     this.clearUploadedTemplate();
                 });
+
+                // Enhancement Pipeline checkbox toggle
+                this.enhanceCheckbox.addEventListener('change', (e) => {
+                    const isChecked = e.target.checked;
+                    this.enhancementTemplateGroup.style.display = isChecked ? 'block' : 'none';
+                });
+
+                // Enhancement template selection
+                this.enhancementTemplateSelect.addEventListener('change', (e) => {
+                    this.selectedEnhancementTemplate = e.target.value || null;
+                });
             }
 
             adjustSlideCount(delta) {
@@ -1038,6 +1081,9 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                     const title = this.titleInput.value.trim();
                     const nSlides = parseInt(this.slideCountInput.value);
 
+                    const enhanceEnabled = this.enhanceCheckbox.checked;
+                    const enhancementTemplate = enhanceEnabled ? this.selectedEnhancementTemplate : null;
+
                     let response;
                     if (this.uploadedTemplateFile) {
                         const formData = new FormData();
@@ -1048,7 +1094,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                         formData.append('language', 'zh-TW');
                         formData.append('n_slides', nSlides);
                         if (this.selectedTheme) formData.append('theme', this.selectedTheme);
-                        formData.append('enhance', 'false');
+                        formData.append('enhance', enhanceEnabled ? 'true' : 'false');
+                        if (enhancementTemplate) formData.append('enhancement_template', enhancementTemplate);
 
                         response = await fetch(`${API_BASE_URL}/generate-with-template`, {
                             method: 'POST',
@@ -1059,7 +1106,8 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                             content: content,
                             template: this.selectedTemplate,
                             language: 'zh-TW',
-                            n_slides: nSlides
+                            n_slides: nSlides,
+                            enhance: enhanceEnabled
                         };
 
                         if (title) {
@@ -1068,6 +1116,10 @@ AI 將自動分析您的內容並建立結構化的投影片。"
 
                         if (this.selectedTheme) {
                             payload.theme = this.selectedTheme;
+                        }
+
+                        if (enhancementTemplate) {
+                            payload.enhancement_template = enhancementTemplate;
                         }
 
                         response = await fetch(`${API_BASE_URL}/generate`, {

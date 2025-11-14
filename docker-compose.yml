@@ -8,7 +8,7 @@ services:
   presenton:
     image: ${PRESENTON_IMAGE:-ghcr.io/presenton/presenton:latest}
     container_name: presenton-api
-    # platform: ${DOCKER_PLATFORM:-linux/amd64}  # Commented out to allow auto-detection
+    platform: linux/amd64  # Explicitly set platform to avoid arm64 mismatch
     environment:
       - PRESENTON_API_KEY=sk-presenton-2a1d7db68395f4aaedbca4eb3a82b5c8797c26e3187ea4c2ab5079693e6b9822f576ac900b00e02bc63f44eefb5111db45decec946e95ad482cf73655f2c356e
       - LLM=ollama
