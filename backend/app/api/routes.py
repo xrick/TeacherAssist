@@ -63,30 +63,41 @@ async def get_progress(task_id: str):
 @router.get("/download/{presentation_id}/{format}")
 async def download_presentation(presentation_id: str, format: str):
     """Download generated presentation"""
-    
+
     if format not in ["pptx", "pdf"]:
         raise HTTPException(status_code=400, detail="不支援的格式")
-    
+
     try:
-        # Download from Presenton
-        content = await presenton.download_presentation(presentation_id, format)
-        
-        # Save temporarily
         output_dir = settings.output_dir
         os.makedirs(output_dir, exist_ok=True)
-        
+
+        # Check if enhanced version exists (from Enhancement Pipeline)
+        enhanced_filename = f"{presentation_id}_enhanced.{format}"
+        enhanced_filepath = os.path.join(output_dir, enhanced_filename)
+
+        if os.path.exists(enhanced_filepath):
+            # Return enhanced version
+            return FileResponse(
+                enhanced_filepath,
+                media_type="application/octet-stream",
+                filename=f"簡報_增強_{presentation_id}.{format}"
+            )
+
+        # Otherwise, download from Presenton
+        content = await presenton.download_presentation(presentation_id, format)
+
         filename = f"{presentation_id}.{format}"
         filepath = os.path.join(output_dir, filename)
-        
+
         with open(filepath, "wb") as f:
             f.write(content)
-        
+
         return FileResponse(
             filepath,
             media_type="application/octet-stream",
             filename=f"簡報_{presentation_id}.{format}"
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"下載失敗: {str(e)}")
 
