@@ -12,6 +12,7 @@ services:
     environment:
       - PRESENTON_API_KEY=sk-presenton-2a1d7db68395f4aaedbca4eb3a82b5c8797c26e3187ea4c2ab5079693e6b9822f576ac900b00e02bc63f44eefb5111db45decec946e95ad482cf73655f2c356e
       - LLM=ollama
+      - WEB_GROUNDING=false
       # - OLLAMA_URL=http://host.docker.internal:11434  # home (local Ollama)
       - OLLAMA_URL=http://192.168.200.48:11434  # office (default, currently unavailable)
       - OLLAMA_MODEL=gpt-oss:20b  #phi4-mini:3.8b
