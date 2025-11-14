@@ -1,9 +1,14 @@
 import uuid
 import asyncio
-from typing import Dict, Any
+import io
+from typing import Dict, Any, Optional
 from app.services.ollama_service import OllamaService
 from app.services.pexels_service import PexelsService
 from app.services.presenton_service import PresentonService
+from app.services.pptx_analyzer import PythonPptxAnalyzer
+from app.services.content_improver import ContentImprover
+from app.services.presentation_rebuilder import PresentationRebuilder
+from app.services.template_manager import TemplateManager
 
 class ContentProcessor:
     def __init__(self):
@@ -11,6 +16,11 @@ class ContentProcessor:
         self.pexels = PexelsService()
         self.presenton = PresentonService()
         self.tasks = {}
+
+        self.analyzer = PythonPptxAnalyzer()
+        self.improver = ContentImprover()
+        self.rebuilder = PresentationRebuilder()
+        self.template_manager = TemplateManager()
         
     async def process_content(
         self,
@@ -18,7 +28,10 @@ class ContentProcessor:
         template: str,
         task_id: str,
         n_slides: int = 6,
-        theme: str = None
+        theme: str = None,
+        enhance: bool = False,
+        enhancement_template: Optional[str] = None,
+        title: Optional[str] = None
     ) -> Dict[str, Any]:
         """Process content and generate presentation
 
@@ -28,6 +41,9 @@ class ContentProcessor:
             task_id: Unique task identifier
             n_slides: Number of slides to generate (user-specified, default 6)
             theme: Theme style (edge-yellow, mint-blue, light-rose, professional-blue, professional-dark)
+            enhance: Enable quality enhancement pipeline (default: False)
+            enhancement_template: PPTX template for enhancement (default: auto-select from template_manager)
+            title: Presentation title (optional, max 50 chars)
         """
 
         try:
@@ -47,10 +63,20 @@ class ContentProcessor:
                 content=content,
                 n_slides=n_slides,  # User-specified slide count (validated against template)
                 template_id=template,  # Template style (general, modern, standard, swift)
-                theme_id=theme  # Theme style (edge-yellow, mint-blue, etc.)
+                theme_id=theme,  # Theme style (edge-yellow, mint-blue, etc.)
+                title=title  # User-provided title (optional)
             )
 
-            # Step 4: Finalize (100%)
+            # Step 4: Enhancement Pipeline (Optional, 90-100%)
+            if enhance:
+                await self._apply_enhancement_pipeline(
+                    task_id=task_id,
+                    presentation_id=presentation_id,
+                    presentation_result=presentation_result,
+                    enhancement_template=enhancement_template
+                )
+
+            # Step 5: Finalize (100%)
             self._update_progress(task_id, 100, "簡報生成完成...")
 
             # Extract presentation data from Presenton response
@@ -110,6 +136,71 @@ class ContentProcessor:
             self.tasks[task_id] = error_result
             return error_result
     
+    async def _apply_enhancement_pipeline(
+        self,
+        task_id: str,
+        presentation_id: str,
+        presentation_result: Dict[str, Any],
+        enhancement_template: Optional[str] = None
+    ):
+        """Apply 3-stage enhancement pipeline to improve PPTX quality
+
+        Stages:
+        1. Parse (90%): Extract slide data from Presenton PPTX
+        2. Improve (93%): Enhance content with LLM
+        3. Rebuild (96%): Generate new PPTX with template and improvements
+        """
+        try:
+            # Stage 1: Parse Presenton PPTX (90%)
+            self._update_progress(task_id, 90, "正在解析簡報結構...")
+
+            pptx_bytes = await self.presenton.download_presentation(presentation_id, "pptx")
+            slides_data = self.analyzer.parse_presentation(pptx_bytes)
+
+            # Stage 2: Improve content with LLM (93%)
+            self._update_progress(task_id, 93, "正在優化內容品質...")
+
+            presentation_details = await self.presenton.get_presentation_status(presentation_id)
+            topic = presentation_details.get("title", "簡報")
+            improved_slides = await self.improver.improve_slides_batch(slides_data, topic)
+
+            # Stage 3: Rebuild with template (96%)
+            self._update_progress(task_id, 96, "正在重建簡報...")
+
+            if not enhancement_template:
+                enhancement_template = self.template_manager.get_recommended_template("educational")
+
+            if enhancement_template:
+                from pathlib import Path
+                template_path = self.template_manager.templates_dir / enhancement_template
+                enhanced_pptx_bytes = self.rebuilder.rebuild_presentation(
+                    improved_slides,
+                    template_path=str(template_path)
+                )
+            else:
+                enhanced_pptx_bytes = self.rebuilder.rebuild_presentation(
+                    improved_slides,
+                    template_path=None
+                )
+
+            # Replace original PPTX in output directory
+            import os
+            from app.config import get_settings
+            settings = get_settings()
+            output_dir = settings.output_dir
+            os.makedirs(output_dir, exist_ok=True)
+
+            enhanced_filepath = os.path.join(output_dir, f"{presentation_id}_enhanced.pptx")
+            with open(enhanced_filepath, "wb") as f:
+                f.write(enhanced_pptx_bytes)
+
+            self._update_progress(task_id, 99, "品質增強完成...")
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            self._update_progress(task_id, 90, f"品質增強失敗: {str(e)}")
+
     def _extract_slide_content(self, slide_content: Dict[str, Any]) -> list:
         """Extract bullet points or content from Presenton slide"""
         content = []

@@ -4,8 +4,6 @@ from typing import List, Optional, Literal
 from enum import Enum
 
 class TemplateType(str, Enum):
-    ADMINISTRATIVE = "administrative"
-    EDUCATIONAL = "educational"
     GENERAL = "general"
     MODERN = "modern"
     STANDARD = "standard"
@@ -19,11 +17,14 @@ class ThemeType(str, Enum):
     PROFESSIONAL_DARK = "professional-dark"
 
 class GenerateRequest(BaseModel):
-    content: str = Field(..., min_length=50, description="Input content for presentation")
+    content: str = Field(..., min_length=20, description="Input content for presentation (minimum 20 characters)")
+    title: Optional[str] = Field(default=None, max_length=50, description="Presentation title (optional, max 50 chars)")
     template: TemplateType = Field(default=TemplateType.GENERAL, description="Presentation template style")
     theme: Optional[ThemeType] = Field(default=None, description="Presentation theme (optional)")
     language: str = Field(default="zh-TW", description="Content language")
     n_slides: int = Field(default=6, ge=3, le=12, description="Number of slides to generate (3-12)")
+    enhance: bool = Field(default=False, description="Enable quality enhancement pipeline (3-stage: parse + improve + rebuild)")
+    enhancement_template: Optional[str] = Field(default=None, description="PPTX template filename for enhancement (auto-select if not provided)")
 
 class SlideContent(BaseModel):
     title: str

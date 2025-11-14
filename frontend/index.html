@@ -166,6 +166,67 @@
             cursor: not-allowed;
         }
 
+        .template-upload-container {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .template-upload-btn {
+            padding: 0.75rem 1.5rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            background: var(--background);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .template-upload-btn:hover {
+            border-color: var(--primary-color);
+            background: rgb(79 70 229 / 0.05);
+        }
+
+        .template-upload-status {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--success-color);
+            border-radius: var(--radius-md);
+            background: rgb(16 185 129 / 0.05);
+        }
+
+        .template-filename {
+            flex: 1;
+            font-size: 0.875rem;
+            color: var(--text-primary);
+        }
+
+        .template-remove-btn {
+            width: 24px;
+            height: 24px;
+            border: none;
+            border-radius: 50%;
+            background: var(--danger-color);
+            color: white;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .template-remove-btn:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+
         .slide-count-input {
             flex: 1;
             text-align: center;
@@ -176,6 +237,28 @@
             font-weight: 600;
             background: var(--surface);
             color: var(--text-primary);
+        }
+
+        .title-input {
+            width: 100%;
+            padding: 0.75rem 1rem;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-md);
+            font-size: 1rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+            background: var(--background);
+            color: var(--text-primary);
+        }
+
+        .title-input:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 3px rgb(79 70 229 / 0.1);
+        }
+
+        .title-input::placeholder {
+            color: var(--text-muted);
         }
 
         .text-input {
@@ -620,10 +703,27 @@
             </div>
 
             <div class="input-group">
+                <label class="input-label" for="title-input">
+                    📌 簡報標題
+                    <span style="color: var(--text-secondary); font-weight: normal;">(可選)</span>
+                </label>
+                <input
+                    type="text"
+                    id="title-input"
+                    class="title-input"
+                    placeholder="輸入簡報標題，留空則由AI自動生成..."
+                    maxlength="50"
+                />
+                <div style="margin-top: 0.25rem; font-size: 0.75rem; color: var(--text-muted);">
+                    💡 提示：提供簡短標題可避免檔名過長問題
+                </div>
+            </div>
+
+            <div class="input-group">
                 <label for="content-input" class="input-label">內容輸入</label>
-                <textarea 
-                    id="content-input" 
-                    class="text-input" 
+                <textarea
+                    id="content-input"
+                    class="text-input"
                     placeholder="請在此處貼上或輸入您的內容...
 
 範例：
@@ -661,6 +761,39 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                     <option value="standard">Standard - 標準樣式</option>
                     <option value="swift">Swift - 簡潔樣式</option>
                 </select>
+            </div>
+
+            <div class="input-group">
+                <label class="input-label">
+                    📁 自訂模板上傳
+                    <span style="color: var(--text-secondary); font-weight: normal;">(可選)</span>
+                </label>
+
+                <div class="template-upload-container">
+                    <input
+                        type="file"
+                        id="template-upload"
+                        accept=".pptx"
+                        style="display: none;"
+                    />
+
+                    <button
+                        type="button"
+                        id="template-upload-btn"
+                        class="template-upload-btn"
+                    >
+                        <span>📤 選擇PPTX模板</span>
+                    </button>
+
+                    <div id="template-upload-status" class="template-upload-status" style="display: none;">
+                        <span class="template-filename"></span>
+                        <button type="button" id="template-remove-btn" class="template-remove-btn">✕</button>
+                    </div>
+                </div>
+
+                <div style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-muted);">
+                    💡 上傳您的PPTX模板檔案，系統將使用它生成簡報
+                </div>
             </div>
 
             <div class="input-group">
@@ -762,6 +895,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.selectedSlideIndex = null;
                 this.transcriptData = null;
                 this.slideDetailsCache = {};
+                this.uploadedTemplateFile = null;
                 this.init();
             }
 
@@ -772,6 +906,7 @@ AI 將自動分析您的內容並建立結構化的投影片。"
             }
 
             bindElements() {
+                this.titleInput = document.getElementById('title-input');
                 this.contentInput = document.getElementById('content-input');
                 this.charCount = document.getElementById('char-count');
                 this.generateBtn = document.getElementById('generate-btn');
@@ -802,6 +937,12 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.transcriptContent = document.getElementById('transcript-content');
                 this.transcriptStyle = document.getElementById('transcript-style');
                 this.downloadTranscriptBtn = document.getElementById('download-transcript');
+
+                // Template upload
+                this.templateUploadInput = document.getElementById('template-upload');
+                this.templateUploadBtn = document.getElementById('template-upload-btn');
+                this.templateUploadStatus = document.getElementById('template-upload-status');
+                this.templateRemoveBtn = document.getElementById('template-remove-btn');
 
                 // Preview panel
                 this.slidePreview = document.getElementById('slide-preview');
@@ -843,6 +984,18 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 document.getElementById('download-transcript').addEventListener('click', () => {
                     this.downloadTranscript();
                 });
+
+                this.templateUploadBtn.addEventListener('click', () => {
+                    this.templateUploadInput.click();
+                });
+
+                this.templateUploadInput.addEventListener('change', (e) => {
+                    this.handleTemplateUpload(e);
+                });
+
+                this.templateRemoveBtn.addEventListener('click', () => {
+                    this.clearUploadedTemplate();
+                });
             }
 
             adjustSlideCount(delta) {
@@ -882,34 +1035,55 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 this.generateBtn.disabled = true;
 
                 try {
-                    // Get user-selected slide count
+                    const title = this.titleInput.value.trim();
                     const nSlides = parseInt(this.slideCountInput.value);
 
-                    const payload = {
-                        content: content,
-                        template: this.selectedTemplate,
-                        language: 'zh-TW',
-                        n_slides: nSlides
-                    };
+                    let response;
+                    if (this.uploadedTemplateFile) {
+                        const formData = new FormData();
+                        formData.append('template_file', this.uploadedTemplateFile);
+                        formData.append('content', content);
+                        if (title) formData.append('title', title);
+                        formData.append('template', this.selectedTemplate);
+                        formData.append('language', 'zh-TW');
+                        formData.append('n_slides', nSlides);
+                        if (this.selectedTheme) formData.append('theme', this.selectedTheme);
+                        formData.append('enhance', 'false');
 
-                    // Add theme if selected
-                    if (this.selectedTheme) {
-                        payload.theme = this.selectedTheme;
+                        response = await fetch(`${API_BASE_URL}/generate-with-template`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                    } else {
+                        const payload = {
+                            content: content,
+                            template: this.selectedTemplate,
+                            language: 'zh-TW',
+                            n_slides: nSlides
+                        };
+
+                        if (title) {
+                            payload.title = title;
+                        }
+
+                        if (this.selectedTheme) {
+                            payload.theme = this.selectedTheme;
+                        }
+
+                        response = await fetch(`${API_BASE_URL}/generate`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        });
                     }
 
-                    const generateResponse = await fetch(`${API_BASE_URL}/generate`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify(payload)
-                    });
-
-                    if (!generateResponse.ok) {
+                    if (!response.ok) {
                         throw new Error('生成請求失敗');
                     }
 
-                    const { task_id } = await generateResponse.json();
+                    const { task_id } = await response.json();
                     await this.pollProgress(task_id);
 
                 } catch (error) {
@@ -1094,6 +1268,36 @@ AI 將自動分析您的內容並建立結構化的投影片。"
                 } else {
                     this.slidePreviewTranscript.style.display = 'none';
                 }
+            }
+
+            handleTemplateUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                if (!file.name.endsWith('.pptx')) {
+                    alert('❌ 請上傳PPTX格式的檔案');
+                    this.templateUploadInput.value = '';
+                    return;
+                }
+
+                const maxSize = 20 * 1024 * 1024;
+                if (file.size > maxSize) {
+                    alert('❌ 檔案大小不得超過20MB');
+                    this.templateUploadInput.value = '';
+                    return;
+                }
+
+                this.uploadedTemplateFile = file;
+                this.templateUploadStatus.querySelector('.template-filename').textContent = file.name;
+                this.templateUploadStatus.style.display = 'flex';
+                this.templateUploadBtn.style.display = 'none';
+            }
+
+            clearUploadedTemplate() {
+                this.uploadedTemplateFile = null;
+                this.templateUploadInput.value = '';
+                this.templateUploadStatus.style.display = 'none';
+                this.templateUploadBtn.style.display = 'flex';
             }
 
             getSlideIcon(type) {

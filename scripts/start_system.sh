@@ -224,15 +224,15 @@ fi
 print_info "檢查 Ollama 模型..."
 
 # 檢查 gpt-oss:20b（內容分析）
-if ollama list | grep -q "phi4-mini:3.8b"; then
-    print_success "phi4-mini:3.8b 模型可用（內容分析）"
+if ollama list | grep -q "gpt-oss:20b"; then
+    print_success "gpt-oss:20b 模型可用（內容分析）"
 else
     print_warning "phi4-mini:3.8b 模型未安裝（必要）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 phi4-mini:3.8b 模型（約 13 GB）..."
-        ollama pull phi4-mini:3.8b
+        print_info "下載 gpt-oss:20b 模型（約 13 GB）..."
+        ollama pull gpt-oss:20b
         print_success "gpt-oss:20b 下載完成"
     else
         print_error "缺少必要模型，無法繼續"
@@ -241,18 +241,18 @@ else
 fi
 
 # 檢查 phi4-mini-reasoning:3.8b（演講稿生成）
-if ollama list | grep -qi "phi4-mini-reasoning:3.8b"; then
-    print_success "phi4-mini-reasoning:3.8b 模型可用（演講稿生成）"
+if ollama list | grep -qi "gpt-oss:20b"; then
+    print_success "gpt-oss:20b 模型可用（演講稿生成）"
 else
-    print_warning "phi4-mini-reasoning:3.8b 模型未安裝（用於演講稿功能）"
+    print_warning "gpt-oss:20b 模型未安裝（用於演講稿功能）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 phi4-mini-reasoning:3.8b 模型..."
-        ollama pull phi4-mini-reasoning:3.8b
-        print_success "phi4-mini-reasoning:3.8b 下載完成"
+        print_info "下載 gpt-oss:20b 模型..."
+        ollama pull gpt-oss:20b
+        print_success "pgpt-oss:20b 下載完成"
     else
-        print_warning "跳過 phi4-mini-reasoning:3.8b，演講稿功能將不可用"
+        print_warning "跳過 gpt-oss:20b，演講稿功能將不可用"
     fi
 fi
 
