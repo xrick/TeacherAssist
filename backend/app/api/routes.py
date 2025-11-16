@@ -1,12 +1,15 @@
 # backend/app/api/routes.py
-from fastapi import APIRouter, HTTPException, BackgroundTasks
+from fastapi import APIRouter, HTTPException, BackgroundTasks, UploadFile, File, Form
 from fastapi.responses import FileResponse
+from typing import Optional
 import uuid
 import os
+import shutil
 from app.models import GenerateRequest, GenerateResponse, ProgressResponse, TranscriptRequest, TranscriptResponse
 from app.services.content_processor import content_processor
 from app.services.presenton_service import PresentonService
 from app.services.zephyr_service import ZephyrService
+from app.services.template_manager import TemplateManager
 from app.config import get_settings
 
 router = APIRouter()
@@ -33,7 +36,10 @@ async def generate_presentation(
         request.template.value,
         task_id,
         request.n_slides,
-        request.theme.value if request.theme else None
+        request.theme.value if request.theme else None,
+        request.enhance,
+        request.enhancement_template,
+        request.title
     )
     
     return GenerateResponse(
@@ -215,3 +221,69 @@ async def get_presentation_details(presentation_id: str):
             status_code=500,
             detail=f"Failed to fetch presentation: {str(e)}"
         )
+
+@router.post("/generate-with-template", response_model=GenerateResponse)
+async def generate_presentation_with_template(
+    background_tasks: BackgroundTasks,
+    template_file: UploadFile = File(...),
+    content: str = Form(...),
+    title: Optional[str] = Form(None),
+    template: str = Form("general"),
+    language: str = Form("zh-TW"),
+    n_slides: int = Form(6),
+    theme: Optional[str] = Form(None),
+    enhance: bool = Form(False)
+):
+    """Generate presentation with custom uploaded template"""
+
+    if not template_file.filename.endswith('.pptx'):
+        raise HTTPException(status_code=400, detail="只接受PPTX格式檔案")
+
+    if len(content.strip()) < 20:
+        raise HTTPException(status_code=400, detail="內容至少需要20個字元")
+
+    try:
+        template_manager = TemplateManager()
+
+        upload_dir = template_manager.templates_dir / "uploaded"
+        upload_dir.mkdir(exist_ok=True)
+
+        template_filename = f"uploaded_{uuid.uuid4().hex[:8]}_{template_file.filename}"
+        template_path = upload_dir / template_filename
+
+        with open(template_path, "wb") as buffer:
+            shutil.copyfileobj(template_file.file, buffer)
+
+        validation_result = template_manager.validate_template(str(template_path))
+        if not validation_result.get("valid"):
+            os.remove(template_path)
+            raise HTTPException(
+                status_code=400,
+                detail=f"模板驗證失敗: {validation_result.get('error', 'Unknown error')}"
+            )
+
+        task_id = str(uuid.uuid4())
+
+        background_tasks.add_task(
+            content_processor.process_content,
+            content,
+            template,
+            task_id,
+            n_slides,
+            theme,
+            enhance,
+            str(template_path),
+            title
+        )
+
+        return GenerateResponse(
+            task_id=task_id,
+            status="processing",
+            progress=0,
+            message="開始處理內容 (使用自訂模板)..."
+        )
+
+    except Exception as e:
+        if 'template_path' in locals() and os.path.exists(template_path):
+            os.remove(template_path)
+        raise HTTPException(status_code=500, detail=f"上傳失敗: {str(e)}")

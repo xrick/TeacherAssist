@@ -13,41 +13,43 @@ class PresentonService:
         self.api_key = self.settings.presenton_api_key
         self._template_cache = {}
 
-    def _generate_safe_title(self, content: str, max_length: int = 40) -> str:
-        """Generate a safe, filesystem-friendly title from content
-
+    def _generate_safe_title(self, content: str, max_length: int = 12) -> str:
+        """Generate a safe, filesystem-friendly random filename
+        
+        Uses MD5 hash of content to generate deterministic UUID,
+        ensuring consistent filenames for the same content while
+        keeping filename length under 15 bytes (12 chars + .pptx).
+        
         Args:
             content: Full presentation content
-            max_length: Maximum length in characters (default: 40 for UTF-8 safety)
-
+            max_length: Maximum length in characters (default: 12)
+        
         Returns:
-            Safe title string suitable for filenames
-
+            Random alphanumeric string (e.g., 'a1b2c3d4e5f6')
+        
         Note:
-            - UTF-8 Chinese characters are 3 bytes each
-            - max_length=40 ensures ~120 bytes max (well under 255 byte limit)
-            - Removes special characters and colons that may cause issues
+            - Generates deterministic UUID from content MD5 hash
+            - 12-character alphanumeric string = 12 bytes (< 255 byte limit)
+            - Same content always generates same filename (useful for caching)
         """
-        # Extract first meaningful line (skip empty lines)
-        lines = content.strip().split('\n')
-        first_line = next((line.strip() for line in lines if line.strip()), "簡報")
-
-        # Remove common prefixes like "題名：", "標題：", "主題："
-        first_line = re.sub(r'^(題名|標題|主題|Title)[:：]\s*', '', first_line)
-
-        # Remove special characters that may cause filesystem issues
-        # Keep: Chinese, English, numbers, spaces, dashes
-        safe_title = re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9\s\-]', '', first_line)
-
-        # Truncate to max_length characters
-        if len(safe_title) > max_length:
-            safe_title = safe_title[:max_length].rstrip()
-
-        # Fallback to hash-based name if title is empty after cleaning
-        if not safe_title or len(safe_title) < 3:
-            content_hash = hashlib.md5(content.encode()).hexdigest()[:8]
-            safe_title = f"簡報_{content_hash}"
-
+        import uuid
+        
+        # Generate deterministic UUID from content hash
+        content_hash = hashlib.md5(content.encode()).hexdigest()
+        
+        # Convert first 32 hex chars to UUID format
+        uuid_str = '-'.join([
+            content_hash[0:8],
+            content_hash[8:12],
+            content_hash[12:16],
+            content_hash[16:20],
+            content_hash[20:32]
+        ])
+        
+        # Create UUID and convert to alphanumeric (no hyphens)
+        random_uuid = uuid.UUID(uuid_str)
+        safe_title = str(random_uuid).replace('-', '')[:max_length]
+        
         return safe_title
 
     async def get_template_info(self, template_id: Optional[str] = None) -> Dict[str, Any]:
@@ -87,7 +89,8 @@ class PresentonService:
         content: str,
         n_slides: int = 6,
         template_id: Optional[str] = None,
-        theme_id: Optional[str] = None
+        theme_id: Optional[str] = None,
+        title: Optional[str] = None
     ) -> Dict[str, Any]:
         """Create presentation using Presenton API /generate endpoint
 
@@ -96,6 +99,7 @@ class PresentonService:
             n_slides: Number of slides to generate (default: 6, user-configurable)
             template_id: Optional template ID (general, modern, standard, swift)
             theme_id: Optional theme ID (edge-yellow, mint-blue, light-rose, professional-blue, professional-dark)
+            title: Optional presentation title (max 50 chars)
 
         Note: Presenton template system requires custom templates to be uploaded via
         template management API first. For now, we use default styling by omitting
@@ -115,8 +119,13 @@ class PresentonService:
             n_slides = max_slides
 
         # Generate safe title to prevent filename length issues
-        safe_title = self._generate_safe_title(content)
-        print(f"Generated safe title: {safe_title} (length: {len(safe_title)} chars)")
+        if title:
+            import re
+            safe_title = re.sub(r'[^\u4e00-\u9fa5a-zA-Z0-9\s\-]', '', title)[:40]
+            print(f"Using user-provided title: {safe_title} (length: {len(safe_title)} chars)")
+        else:
+            safe_title = self._generate_safe_title(content)
+            print(f"Generated safe title: {safe_title} (length: {len(safe_title)} chars)")
 
         # Prepend safe filename to content
         # Presenton API extracts filename from first line of content
@@ -152,12 +161,19 @@ class PresentonService:
         if theme_id:
             payload["theme"] = theme_id
 
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Presenton API payload: {payload}")
+
         async with httpx.AsyncClient(timeout=300.0) as client:
             response = await client.post(
                 f"{self.base_url}/api/v1/ppt/presentation/generate",
                 headers=headers,
                 json=payload
             )
+            logger.info(f"Presenton API response status: {response.status_code}")
+            if response.status_code != 200:
+                logger.error(f"Presenton API error response: {response.text}")
             response.raise_for_status()
             return response.json()
     

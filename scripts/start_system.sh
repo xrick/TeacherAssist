@@ -187,8 +187,8 @@ check_port() {
     fi
 }
 
-check_port 5151 "Backend" # 5050 is the default port for the Backend
-check_port 8000 "Presenton"
+check_port 5050 "Backend"
+check_port 8001 "Presenton"  # Presenton 映射到 8001
 check_port 8080 "Frontend"
 
 echo ""
@@ -224,15 +224,15 @@ fi
 print_info "檢查 Ollama 模型..."
 
 # 檢查 gpt-oss:20b（內容分析）
-if ollama list | grep -q "phi4-mini:3.8b"; then
-    print_success "phi4-mini:3.8b 模型可用（內容分析）"
+if ollama list | grep -q "gpt-oss:20b"; then
+    print_success "gpt-oss:20b 模型可用（內容分析）"
 else
     print_warning "phi4-mini:3.8b 模型未安裝（必要）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 phi4-mini:3.8b 模型（約 13 GB）..."
-        ollama pull phi4-mini:3.8b
+        print_info "下載 gpt-oss:20b 模型（約 13 GB）..."
+        ollama pull gpt-oss:20b
         print_success "gpt-oss:20b 下載完成"
     else
         print_error "缺少必要模型，無法繼續"
@@ -241,18 +241,18 @@ else
 fi
 
 # 檢查 phi4-mini-reasoning:3.8b（演講稿生成）
-if ollama list | grep -qi "phi4-mini-reasoning:3.8b"; then
-    print_success "phi4-mini-reasoning:3.8b 模型可用（演講稿生成）"
+if ollama list | grep -qi "gpt-oss:20b"; then
+    print_success "gpt-oss:20b 模型可用（演講稿生成）"
 else
-    print_warning "phi4-mini-reasoning:3.8b 模型未安裝（用於演講稿功能）"
+    print_warning "gpt-oss:20b 模型未安裝（用於演講稿功能）"
     read -p "是否現在下載？(y/N): " -n 1 -r
     echo ""
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "下載 phi4-mini-reasoning:3.8b 模型..."
-        ollama pull phi4-mini-reasoning:3.8b
-        print_success "phi4-mini-reasoning:3.8b 下載完成"
+        print_info "下載 gpt-oss:20b 模型..."
+        ollama pull gpt-oss:20b
+        print_success "pgpt-oss:20b 下載完成"
     else
-        print_warning "跳過 phi4-mini-reasoning:3.8b，演講稿功能將不可用"
+        print_warning "跳過 gpt-oss:20b，演講稿功能將不可用"
     fi
 fi
 
@@ -281,7 +281,50 @@ fi
 
 # 構建並啟動服務
 print_info "構建並啟動 Docker 容器..."
-docker compose up -d --build
+
+# 先建置 backend（避免平台衝突）
+print_info "建置 Backend 容器..."
+docker compose build backend
+
+# 啟動服務（使用 --no-build 避免重複建置）
+print_info "啟動所有服務..."
+if docker compose up -d --no-build 2>&1 | grep -q "platform.*does not match"; then
+    print_warning "檢測到平台衝突，分別啟動服務..."
+
+    # 手動啟動 Backend
+    docker compose up -d backend
+
+    # 手動啟動 Presenton（處理平台問題）
+    print_info "啟動 Presenton 容器（處理平台轉換）..."
+
+    # 檢查是否已有 Presenton 容器運行
+    if docker ps -a | grep -q "presenton-api"; then
+        docker rm -f presenton-api 2>/dev/null || true
+    fi
+
+    # 使用 docker run 直接啟動（明確指定平台）
+    docker run -d --name presenton-api \
+        --platform linux/amd64 \
+        --network teacherassist_app-network \
+        --network-alias presenton \
+        -p 8001:8000 \
+        -e "PRESENTON_API_KEY=${PRESENTON_API_KEY:-sk-presenton-2a1d7db68395f4aaedbca4eb3a82b5c8797c26e3187ea4c2ab5079693e6b9822f576ac900b00e02bc63f44eefb5111db45decec946e95ad482cf73655f2c356e}" \
+        -e "LLM=ollama" \
+        -e "WEB_GROUNDING=false" \
+        -e "TOOL_CALLS=false" \
+        -e "OLLAMA_URL=${OLLAMA_URL:-http://192.168.200.48:11434}" \
+        -e "OLLAMA_MODEL=${OLLAMA_MODEL:-gpt-oss:20b}" \
+        -e "IMAGE_PROVIDER=pexels" \
+        -e "PEXELS_API_KEY=${PEXELS_API_KEY:-kKOp88XcQabMQH1lCUMSMjqNRByDrHuFNe3ED4FzkQ4rsg2Yv9peyRA6}" \
+        --add-host host.docker.internal:host-gateway \
+        -v "$(pwd)/app_data:/app_data" \
+        --restart unless-stopped \
+        "$PRESENTON_IMAGE"
+
+    print_success "Presenton 容器已啟動（平台: linux/amd64）"
+else
+    print_success "服務啟動成功"
+fi
 
 # 等待服務啟動
 print_info "等待服務啟動..."

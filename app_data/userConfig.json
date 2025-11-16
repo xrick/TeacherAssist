@@ -1,1 +1,1 @@
-{"LLM":"ollama","OLLAMA_URL":"http://host.docker.internal:11434","OLLAMA_MODEL":"phi4-mini:3.8b","PEXELS_API_KEY":"kKOp88XcQabMQH1lCUMSMjqNRByDrHuFNe3ED4FzkQ4rsg2Yv9peyRA6","IMAGE_PROVIDER":"pexels"}
+{"LLM":"ollama","OLLAMA_URL":"http://192.168.200.48:11434","OLLAMA_MODEL":"gpt-oss:20b","PEXELS_API_KEY":"kKOp88XcQabMQH1lCUMSMjqNRByDrHuFNe3ED4FzkQ4rsg2Yv9peyRA6","IMAGE_PROVIDER":"pexels","TOOL_CALLS":"false","WEB_GROUNDING":"false"}
