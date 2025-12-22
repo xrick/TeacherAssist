@@ -1,0 +1,89 @@
+refData/prompts/prompt_for_apply_pptagent.txt
+
+中文版本
+# Role
+你是一位經驗豐富的全端工程師與 RAG (Retrieval-Augmented Generation) 系統架構師。你專精於 Python 開發、LangChain 應用以及「文字自動生成簡報 (Text-to-PPT)」的系統建置。
+
+# Context
+我正在重構一個名為 "teacherassist" 的專案。
+1. **teacherassist (Target Project):** 目標專案，旨在輔助教師自動生成簡報。
+   - **現狀變更：** 原本核心使用 `presenton`，但**我決定將其移除，不再使用**。
+   - **新目標：** 改為全面採用 `pptagent` 的方法論或程式碼來達成「文字轉簡報」的功能。
+2. **pptagent (Reference/New Core):** 一個開源研究專案，我希望將其作為新的核心邏輯參考。
+
+# Goal
+分析 `pptagent` 的實作方式，並將其邏輯完整移植到 `teacherassist` 中，**完全取代**原本 `presenton` 的功能。同時，我也希望一併更新使用者介面。
+
+# Workflow & Tasks
+請依序執行以下步驟，確保系統能獨立運作：
+
+## Step 1: 核心邏輯分析 (pptagent Deep Dive)
+- 分析 `pptagent` 如何達成從「User Input」到「最終 PPTX 檔案」的完整流程。
+- 特別確認：它使用什麼函式庫來產生實體 PPT 檔案 (例如 `python-pptx`)？
+- 評估將其整合進 `teacherassist` 所需的依賴環境 (Dependencies)。
+
+## Step 2: 架構重構計畫 (Refactoring Plan)
+- 設計一個移除 `presenton` 後的新後端架構。
+- 描述新的資料流：`User Text Input` -> `LLM Processing (RAG/Agent)` -> `Slide Structure Generation` -> `File Rendering`。
+
+## Step 3: UI/UX 現代化設計
+- 設計一個適合新架構的前端介面 (HTML/JS/CSS)。
+- 功能需求：
+    - 清楚的文字輸入區 (支援長文本)。
+    - 生成過程的狀態顯示 (因為 Agent 生成可能較慢)。
+    - 下載生成的 PPT 檔案按鈕。
+
+## Step 4: 程式碼實作 (Implementation)
+請產出以下關鍵程式碼：
+- **Backend (Python):** - 移除舊有依賴。
+    - 實作新的 API endpoint，整合 `pptagent` 的核心邏輯 (或其簡化版) 來生成 PPT。
+- **Frontend:** 對應的介面程式碼。
+- **Requirements:** 列出新的 `requirements.txt` 內容。
+
+---
+**重要引導：**
+為了確保程式碼能順利運行，**請先告訴我你需要檢視 `pptagent` 的哪些核心檔案 (例如處理 prompt 的邏輯或呼叫 python-pptx 的部分)**，我會提供給你以便你進行整合。
+
+---------------------
+英文版本(時候用英文對話，LLM 在處理程式碼邏輯時會稍微精確一些。)
+# Role
+You are an expert Full-Stack Engineer and RAG (Retrieval-Augmented Generation) System Architect. You specialize in NLP, LangChain, and the development of "Text-to-Presentation" automated systems.
+
+# Context
+I am currently refactoring a project named **"teacherassist"**.
+1.  **teacherassist (Target Project):** A tool designed to help teachers automatically generate slide decks.
+    * **Major Change:** The original core engine, `presenton`, is being **deprecated and completely removed**.
+    * **New Direction:** The system must now fully adopt the methodology and logic of **`pptagent`** to handle the entire pipeline from text analysis to slide generation.
+2.  **pptagent (Reference/New Core):** An open-source research project. I want to transplant its core logic to serve as the new engine for `teacherassist`.
+
+# Goal
+Analyze the implementation of `pptagent`, port its logic into `teacherassist` to replace the old engine, and generate a complete, modernized source code structure (Backend + Frontend).
+
+# Workflow & Tasks
+Please follow these steps strictly. Do not generate the final code until the analysis is clear.
+
+## Step 1: Core Logic Analysis (pptagent Deep Dive)
+* Analyze how `pptagent` processes "User Input" into a final "PPTX file".
+* Identify the underlying rendering library it uses (e.g., `python-pptx`) since we are removing `presenton`.
+* Determine the necessary dependencies for this new integration.
+
+## Step 2: Architecture Refactoring Plan
+* Design a new backend architecture for `teacherassist` that operates independently of `presenton`.
+* Define the new Data Flow: `User Text Input` -> `LLM Processing (Agent/Chain)` -> `Slide Structure Generation (JSON/Schema)` -> `File Rendering`.
+
+## Step 3: UI/UX Modernization
+* Design a modern, responsive frontend (HTML/CSS/JS).
+* Key Requirements:
+    * A clean input interface for long text or topic prompts.
+    * **Progress/Status Indicators:** Since Agent processing can be slow, the UI must provide feedback during generation.
+    * A clear "Download PPT" action.
+
+## Step 4: Implementation
+Based on the design above, generate the following source code:
+* **Backend (Python):** New API endpoints (e.g., FastAPI or Flask) that implement the `pptagent` logic.
+* **Frontend:** The complete HTML, CSS, and JavaScript code.
+* **Dependencies:** An updated `requirements.txt` reflecting the removal of `presenton` and the addition of new libraries.
+
+---
+**CRITICAL INSTRUCTION:**
+Since you do not have direct access to my local files, **please explicitly list which specific files from the `pptagent` repository (e.g., main logic scripts, prompt templates, or rendering utilities) you need me to provide first.** I will paste their content so you can generate the most accurate integration code.
